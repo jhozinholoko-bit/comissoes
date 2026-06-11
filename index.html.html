@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comissões 2026 – Victor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #263346; --border: #334155;
+    --text: #f1f5f9; --text-muted: #94a3b8; --accent: #818cf8; --accent2: #6366f1;
+    --green: #34d399; --yellow: #fbbf24; --orange: #f97316; --red: #f87171; --purple: #c084fc;
+  }
+  body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 20px; font-weight: 700; }
+  .header h1 span { color: var(--accent); }
+  .month-nav { display: flex; align-items: center; gap: 8px; }
+  .month-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
+  .month-btn:hover { background: var(--accent2); border-color: var(--accent); }
+  .month-btn.active { background: var(--accent2); border-color: var(--accent); color: #fff; }
+  .nav-arrow { background: var(--surface2); border: 1px solid var(--border); color: var(--text); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .nav-arrow:hover:not(:disabled) { background: var(--accent2); border-color: var(--accent); }
+  .nav-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
+  .main { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .card-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
+  .card-value { font-size: 26px; font-weight: 700; }
+  .card-value.green { color: var(--green); }
+  .card-value.yellow { color: var(--yellow); }
+  .card-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .section-title { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: var(--surface2); color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+  th.right, td.right { text-align: right; }
+  td { padding: 11px 16px; font-size: 14px; border-bottom: 1px solid rgba(51,65,85,0.5); }
+  tr:last-child td { border-bottom: none; }
+  tr.pausado td { background: rgba(251,191,36,0.08); }
+  tr.pausado td.name-cell { color: var(--yellow); }
+  tr.pausado { border-left: 3px solid var(--yellow); }
+  tr.cancelando td { background: rgba(249,115,22,0.08); }
+  tr.cancelando td.name-cell { color: var(--orange); }
+  tr.cancelando { border-left: 3px solid var(--orange); }
+  tr.novo td { background: rgba(129,140,248,0.07); }
+  tr.novo td.name-cell::after { content: ' novo'; font-size: 10px; font-weight: 700; color: var(--accent); opacity: 0.7; text-transform: uppercase; margin-left: 6px; }
+  .tier { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; }
+  .tier-3 { background: rgba(148,163,184,0.15); color: #94a3b8; }
+  .tier-5 { background: rgba(129,140,248,0.15); color: var(--accent); }
+  .tier-8 { background: rgba(52,211,153,0.15); color: var(--green); }
+  .status-select { border: none; outline: none; cursor: pointer; font-size: 11px; font-weight: 600; font-family: inherit; appearance: none; padding: 2px 9px; border-radius: 20px; text-align: center; display: block; width: 100%; }
+  .status-select.s-normal { background: rgba(52,211,153,0.12); color: var(--green); }
+  .status-select.s-pausado { background: rgba(251,191,36,0.12); color: var(--yellow); }
+  .status-select.s-cancelando { background: rgba(249,115,22,0.12); color: var(--orange); }
+  .status-select option { background: #1e293b; color: var(--text); font-size: 13px; }
+  .diff-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .diff-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; }
+  .diff-card-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .diff-card-title.added { color: var(--green); }
+  .diff-card-title.removed { color: var(--red); }
+  .diff-card-title.changed { color: var(--yellow); }
+  .diff-item { font-size: 13px; color: var(--text); padding: 5px 0; border-bottom: 1px solid rgba(51,65,85,0.4); display: flex; align-items: center; justify-content: space-between; }
+  .diff-item:last-child { border-bottom: none; }
+  .diff-scroll { max-height: 200px; overflow-y: auto; }
+  .diff-empty { font-size: 13px; color: var(--text-muted); font-style: italic; }
+  .extras-list { display: flex; flex-wrap: wrap; gap: 10px; }
+  .extra-item { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 10px; }
+  .extra-desc { color: var(--text-muted); }
+  .extra-val { font-weight: 700; color: var(--purple); }
+  .extra-val.unknown { color: var(--text-muted); font-style: italic; }
+  .comm-zero { color: var(--text-muted); }
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px 32px; width: 420px; max-width: 95vw; }
+  .modal h2 { font-size: 17px; font-weight: 700; margin-bottom: 20px; }
+  .form-row { margin-bottom: 16px; }
+  .form-row label { display: block; font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .form-row input { width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-size: 14px; font-family: inherit; outline: none; }
+  .form-row input:focus { border-color: var(--accent); }
+  .form-hint { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 24px; }
+  .btn { padding: 8px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; font-family: inherit; }
+  .btn-primary { background: var(--accent2); color: #fff; }
+  .btn-primary:hover { background: var(--accent); }
+  .btn-ghost { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { color: var(--text); }
+  @media (max-width: 700px) {
+    .diff-grid { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: 1fr 1fr; }
+    .header { flex-direction: column; gap: 16px; align-items: flex-start; }
+  }
+</style>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Comissões <span>2026</span> — Victor</h1>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:3px" id="headerSub"></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="month-nav" id="monthNav"></div>
+    <span id="syncStatus" style="font-size:11px;color:var(--text-muted);transition:opacity 0.3s">⟳ Carregando...</span>
+    <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;opacity:0.5" onclick="if(confirm('Limpar TODOS os dados (Supabase + local)?')){sb.from('comissoes_state').delete().neq('id','xxxxxxx').then(function(){localStorage.clear();location.reload();});}">↺ Reset</button>
+  </div>
+</div>
+
+<div class="main" id="main"></div>
+
+<div class="modal-overlay" id="modalExtraOverlay">
+  <div class="modal">
+    <h2>Adicionar Receita</h2>
+    <div class="form-row"><label>Descrição</label><input type="text" id="extraDesc" placeholder="Ex: LP Fast - Cliente X" /></div>
+    <div class="form-row">
+      <label>Status</label>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--green)"><input type="radio" name="extraStatus" value="pago" checked /> Pago</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--yellow)"><input type="radio" name="extraStatus" value="pendente" /> Pendente</label>
+      </div>
+    </div>
+    <div class="form-row" id="extraValorRow"><label>Valor (R$)</label><input type="number" id="extraValor" placeholder="0,00" min="0" step="0.01" /></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeExtraModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="addExtra()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2>Novo Cliente</h2>
+    <div class="form-row"><label>Nome</label><input type="text" id="newName" placeholder="Nome do cliente" /></div>
+    <div class="form-row"><label>Mensalidade (R$)</label><input type="number" id="newValor" placeholder="0,00" min="0" step="0.01" /></div>
+    <div class="form-hint" id="newClientPreview"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="addClient()">Adicionar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var DATA = JSON.parse('{"JAN":{"clients":[{"name":"Acentra","valorMensal":3897,"dataInicio":"01/01/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":116.91,"status":"normal","isManual":false},{"name":"Da Vinci (Privado/Convênios)","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Pense Madeiras / Capivara","valorMensal":800,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":64,"status":"normal","isManual":false},{"name":"Beatriz Pinaud","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Igor Medeiros","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Expositores Aelli","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Cintia","valorMensal":500,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":40,"status":"normal","isManual":false},{"name":"Colombia Paradise Pub","valorMensal":997,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":79.76,"status":"normal","isManual":false},{"name":"KCE Gesso","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Elô","valorMensal":690,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":55.2,"status":"normal","isManual":false},{"name":"Gabriel Psicólogo","valorMensal":600,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":48,"status":"normal","isManual":false},{"name":"Ilumia Clara","valorMensal":797,"dataInicio":"01/06/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":63.76,"status":"normal","isManual":false},{"name":"Espaço coberturas","valorMensal":1497,"dataInicio":"01/08/2025","mesesAtivos":6,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"IPC MT","valorMensal":747,"dataInicio":"01/08/2025","mesesAtivos":6,"pctComissao":0.05,"valorComissao":37.35,"status":"normal","isManual":false},{"name":"Braptec","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":4,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"Débora Goulart Psicóloga","valorMensal":683.83,"dataInicio":"01/10/2025","mesesAtivos":4,"pctComissao":0.05,"valorComissao":34.1915,"status":"normal","isManual":false},{"name":"Rebeca Oliveira Psicoterapeuta","valorMensal":600,"dataInicio":"01/10/2025","mesesAtivos":4,"pctComissao":0.05,"valorComissao":30,"status":"cancelando","isManual":false},{"name":"Luiz Felipe Advogado","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":4,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"NoCorte","valorMensal":1497,"dataInicio":"01/11/2025","mesesAtivos":3,"pctComissao":0.03,"valorComissao":44.91,"status":"cancelando","isManual":false},{"name":"Mimo Trip","valorMensal":1997,"dataInicio":"01/11/2025","mesesAtivos":3,"pctComissao":0.03,"valorComissao":0,"status":"pausado","isManual":false},{"name":"Paraiso das Bolsas","valorMensal":2900,"dataInicio":"01/11/2025","mesesAtivos":3,"pctComissao":0.03,"valorComissao":87,"status":"cancelando","isManual":false},{"name":"Molina","valorMensal":1000,"dataInicio":"01/01/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":30,"status":"normal","isManual":false}],"total":1115.6315,"extras":[{"descricao":"Página Braptec 5%","valor":35},{"descricao":"Indicação Acentra 10%","valor":389.7},{"descricao":"Indicação Válida - Acentra","valor":40},{"descricao":"Indicação Válida - Luiz [psicologo]","valor":10},{"descricao":"Indicação Válida - Lucas [contabilidade]","valor":10},{"descricao":"Indicação Leezi - Luiz Adv [2 user]","valor":"?"}]},"FEV":{"clients":[{"name":"Acentra","valorMensal":3897,"dataInicio":"01/01/2026","mesesAtivos":2,"pctComissao":0.03,"valorComissao":116.91,"status":"normal","isManual":false},{"name":"Da Vinci (Privado/Convênios)","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Pense Madeiras / Capivara","valorMensal":800,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":64,"status":"normal","isManual":false},{"name":"Beatriz Pinaud","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Igor Medeiros","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Expositores Aelli","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Cintia","valorMensal":500,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":40,"status":"normal","isManual":false},{"name":"Colombia Paradise Pub","valorMensal":997,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":79.76,"status":"normal","isManual":false},{"name":"KCE Gesso","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Elô","valorMensal":690,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":55.2,"status":"cancelando","isManual":false},{"name":"Gabriel Psicólogo","valorMensal":600,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":48,"status":"normal","isManual":false},{"name":"Ilumia Clara","valorMensal":797,"dataInicio":"01/06/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":63.76,"status":"normal","isManual":false},{"name":"Espaço coberturas","valorMensal":1497,"dataInicio":"01/08/2025","mesesAtivos":7,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"IPC MT","valorMensal":597,"dataInicio":"01/08/2025","mesesAtivos":7,"pctComissao":0.05,"valorComissao":29.85,"status":"normal","isManual":false},{"name":"Braptec","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":5,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"Débora Goulart Psicóloga","valorMensal":683.83,"dataInicio":"01/10/2025","mesesAtivos":5,"pctComissao":0.05,"valorComissao":34.1915,"status":"normal","isManual":false},{"name":"Luiz Felipe Advogado","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":5,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"Mimo Trip","valorMensal":1997,"dataInicio":"01/12/2025","mesesAtivos":3,"pctComissao":0.03,"valorComissao":59.91,"status":"cancelando","isManual":false},{"name":"Molina","valorMensal":1000,"dataInicio":"01/01/2026","mesesAtivos":2,"pctComissao":0.03,"valorComissao":30,"status":"normal","isManual":false},{"name":"Vitasons","valorMensal":5800,"dataInicio":"01/02/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":174,"status":"normal","isManual":false}],"total":1180.1315,"extras":[{"descricao":"Indicação Leezi - Luiz Adv [2 user]","valor":"?"},{"descricao":"LP Fast - Gabriel Psi [março]","valor":null},{"descricao":"Social Media IPC - 5%","valor":45}]},"MAR":{"clients":[{"name":"Acentra","valorMensal":3897,"dataInicio":"01/01/2026","mesesAtivos":3,"pctComissao":0.03,"valorComissao":116.91,"status":"normal","isManual":false},{"name":"Da Vinci (Privado/Convênios)","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Pense Madeiras / Capivara","valorMensal":800,"dataInicio":"01/06/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":64,"status":"normal","isManual":false},{"name":"Beatriz Pinaud","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Igor Medeiros","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Expositores Aelli","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Cintia","valorMensal":500,"dataInicio":"01/06/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":40,"status":"normal","isManual":false},{"name":"Colombia Paradise Pub","valorMensal":997,"dataInicio":"01/06/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":79.76,"status":"normal","isManual":false},{"name":"KCE Gesso","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Gabriel Psicólogo","valorMensal":600,"dataInicio":"01/06/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":48,"status":"normal","isManual":false},{"name":"Ilumia Clara","valorMensal":797,"dataInicio":"01/06/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":63.76,"status":"normal","isManual":false},{"name":"Espaço coberturas","valorMensal":1497,"dataInicio":"01/08/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"IPC MT","valorMensal":597,"dataInicio":"01/08/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":47.76,"status":"normal","isManual":false},{"name":"Braptec","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":6,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"Débora Goulart Psicóloga","valorMensal":683.83,"dataInicio":"01/10/2025","mesesAtivos":6,"pctComissao":0.05,"valorComissao":34.1915,"status":"normal","isManual":false},{"name":"Luiz Felipe Advogado","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":6,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"Molina","valorMensal":1000,"dataInicio":"01/01/2026","mesesAtivos":3,"pctComissao":0.03,"valorComissao":30,"status":"normal","isManual":false},{"name":"Vitasons","valorMensal":5800,"dataInicio":"01/02/2026","mesesAtivos":2,"pctComissao":0.03,"valorComissao":174,"status":"normal","isManual":false},{"name":"Casa Equilibrada","valorMensal":447,"dataInicio":"01/03/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":13.41,"status":"normal","isManual":false}],"total":1141.2515,"extras":[{"descricao":"Indicação Leezi - Luiz Adv [2 user]","valor":"?"},{"descricao":"LP Fast - Gabriel Psi - 5%","valor":42.5}]},"ABR":{"clients":[{"name":"Acentra","valorMensal":3897,"dataInicio":"01/01/2026","mesesAtivos":4,"pctComissao":0.05,"valorComissao":194.85,"status":"normal","isManual":false},{"name":"Da Vinci (Privado/Convênios)","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Pense Madeiras / Capivara","valorMensal":800,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":64,"status":"normal","isManual":false},{"name":"Beatriz Pinaud","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Igor Medeiros","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Expositores Aelli","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Cintia","valorMensal":500,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":40,"status":"normal","isManual":false},{"name":"Colombia Paradise Pub","valorMensal":997,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":79.76,"status":"normal","isManual":false},{"name":"KCE Gesso","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Gabriel Psicólogo","valorMensal":600,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":48,"status":"normal","isManual":false},{"name":"Ilumia Clara","valorMensal":797,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":63.76,"status":"normal","isManual":false},{"name":"Espaço coberturas","valorMensal":1497,"dataInicio":"01/08/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"IPC MT","valorMensal":597,"dataInicio":"01/08/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":47.76,"status":"normal","isManual":false},{"name":"Braptec","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":7,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"Débora Goulart Psicóloga","valorMensal":683.83,"dataInicio":"01/10/2025","mesesAtivos":7,"pctComissao":0.05,"valorComissao":34.1915,"status":"cancelando","isManual":false},{"name":"Luiz Felipe Advogado","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":7,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"Molina","valorMensal":1000,"dataInicio":"01/01/2026","mesesAtivos":4,"pctComissao":0.05,"valorComissao":50,"status":"normal","isManual":false},{"name":"Vitasons","valorMensal":5800,"dataInicio":"01/02/2026","mesesAtivos":3,"pctComissao":0.03,"valorComissao":174,"status":"normal","isManual":false},{"name":"Casa Equilibrada","valorMensal":447,"dataInicio":"01/03/2026","mesesAtivos":2,"pctComissao":0.03,"valorComissao":13.41,"status":"normal","isManual":false}],"total":1239.1915,"extras":[{"descricao":"Indicação Leezi - Luiz Adv [2 user]","valor":"?"},{"descricao":"LP Fast - Gabriel Psi - 5%","valor":42.5}]},"MAI":{"clients":[{"name":"Acentra","valorMensal":3897,"dataInicio":"01/01/2026","mesesAtivos":4,"pctComissao":0.05,"valorComissao":194.85,"status":"cancelando","isManual":false},{"name":"Da Vinci (Privado/Convênios)","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Pense Madeiras / Capivara","valorMensal":800,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":64,"status":"normal","isManual":false},{"name":"Beatriz Pinaud","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Igor Medeiros","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Expositores Aelli","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Cintia","valorMensal":500,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":40,"status":"normal","isManual":false},{"name":"Colombia Paradise Pub","valorMensal":997,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":79.76,"status":"normal","isManual":false},{"name":"KCE Gesso","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Gabriel Psicólogo","valorMensal":600,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":0,"status":"pausado","isManual":false},{"name":"Ilumia Clara","valorMensal":797,"dataInicio":"01/06/2025","mesesAtivos":11,"pctComissao":0.08,"valorComissao":63.76,"status":"normal","isManual":false},{"name":"Espaço coberturas","valorMensal":1497,"dataInicio":"01/08/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"IPC MT","valorMensal":1497,"dataInicio":"01/08/2025","mesesAtivos":9,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"Braptec","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":7,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"Luiz Felipe Advogado","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":7,"pctComissao":0.05,"valorComissao":74.85,"status":"normal","isManual":false},{"name":"Molina","valorMensal":1000,"dataInicio":"01/01/2026","mesesAtivos":4,"pctComissao":0.05,"valorComissao":50,"status":"normal","isManual":false},{"name":"Vitasons","valorMensal":5800,"dataInicio":"01/02/2026","mesesAtivos":3,"pctComissao":0.03,"valorComissao":174,"status":"normal","isManual":false},{"name":"Casa Equilibrada","valorMensal":447,"dataInicio":"01/03/2026","mesesAtivos":2,"pctComissao":0.03,"valorComissao":13.41,"status":"normal","isManual":false},{"name":"Beatriz Klein","valorMensal":600,"dataInicio":"01/04/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":18,"status":"normal","isManual":false},{"name":"Nutri Gabi e Sua Turma","valorMensal":1500,"dataInicio":"01/04/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":45,"status":"normal","isManual":false},{"name":"Letícia Ruiz","valorMensal":700,"dataInicio":"01/04/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":21,"status":"normal","isManual":false},{"name":"Engvale","valorMensal":1497,"dataInicio":"01/04/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":44.91,"status":"normal","isManual":false}],"total":1357.91,"extras":[{"descricao":"Indicação Leezi - Luiz Adv [2 user]","valor":"?"}]},"JUN":{"clients":[{"name":"Da Vinci (Privado/Convênios)","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Pense Madeiras / Capivara","valorMensal":800,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":64,"status":"normal","isManual":false},{"name":"Beatriz Pinaud","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Igor Medeiros","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Expositores Aelli","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Cintia","valorMensal":500,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":40,"status":"normal","isManual":false},{"name":"Colombia Paradise Pub","valorMensal":997,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":79.76,"status":"normal","isManual":false},{"name":"KCE Gesso","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Gabriel Psicólogo","valorMensal":600,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":0,"status":"pausado","isManual":false},{"name":"Ilumia Clara","valorMensal":797,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":63.76,"status":"normal","isManual":false},{"name":"Espaço coberturas","valorMensal":1497,"dataInicio":"01/08/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"IPC MT","valorMensal":1497,"dataInicio":"01/08/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"Braptec","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"Luiz Felipe Advogado","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"Molina","valorMensal":1000,"dataInicio":"01/01/2026","mesesAtivos":5,"pctComissao":0.05,"valorComissao":50,"status":"normal","isManual":false},{"name":"Vitasons","valorMensal":5800,"dataInicio":"01/02/2026","mesesAtivos":4,"pctComissao":0.05,"valorComissao":290,"status":"normal","isManual":false},{"name":"Casa Equilibrada","valorMensal":447,"dataInicio":"01/03/2026","mesesAtivos":3,"pctComissao":0.03,"valorComissao":13.41,"status":"normal","isManual":false},{"name":"Beatriz Klein","valorMensal":600,"dataInicio":"01/04/2026","mesesAtivos":2,"pctComissao":0.03,"valorComissao":18,"status":"normal","isManual":false},{"name":"Nutri Gabi e Sua Turma","valorMensal":1500,"dataInicio":"01/04/2026","mesesAtivos":2,"pctComissao":0.03,"valorComissao":0,"status":"cancelando","isManual":false},{"name":"Letícia Ruiz","valorMensal":700,"dataInicio":"01/04/2026","mesesAtivos":2,"pctComissao":0.03,"valorComissao":21,"status":"normal","isManual":false},{"name":"Engvale","valorMensal":1497,"dataInicio":"01/04/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":44.91,"status":"normal","isManual":false}],"total":1323.88,"extras":[]},"JUL":{"clients":[{"name":"Da Vinci (Privado/Convênios)","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Pense Madeiras / Capivara","valorMensal":800,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":64,"status":"normal","isManual":false},{"name":"Beatriz Pinaud","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Igor Medeiros","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Expositores Aelli","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Cintia","valorMensal":500,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":40,"status":"normal","isManual":false},{"name":"Colombia Paradise Pub","valorMensal":997,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":79.76,"status":"normal","isManual":false},{"name":"KCE Gesso","valorMensal":400,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":32,"status":"normal","isManual":false},{"name":"Gabriel Psicólogo","valorMensal":600,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":48,"status":"normal","isManual":false},{"name":"Ilumia Clara","valorMensal":797,"dataInicio":"01/06/2025","mesesAtivos":12,"pctComissao":0.08,"valorComissao":63.76,"status":"normal","isManual":false},{"name":"Espaço coberturas","valorMensal":1497,"dataInicio":"01/08/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"IPC MT","valorMensal":1497,"dataInicio":"01/08/2025","mesesAtivos":10,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"Braptec","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"Luiz Felipe Advogado","valorMensal":1497,"dataInicio":"01/10/2025","mesesAtivos":8,"pctComissao":0.08,"valorComissao":119.76,"status":"normal","isManual":false},{"name":"Molina","valorMensal":1000,"dataInicio":"01/01/2026","mesesAtivos":5,"pctComissao":0.05,"valorComissao":50,"status":"normal","isManual":false},{"name":"Vitasons","valorMensal":5800,"dataInicio":"01/02/2026","mesesAtivos":4,"pctComissao":0.05,"valorComissao":290,"status":"normal","isManual":false},{"name":"Casa Equilibrada","valorMensal":447,"dataInicio":"01/03/2026","mesesAtivos":3,"pctComissao":0.03,"valorComissao":13.41,"status":"normal","isManual":false},{"name":"Beatriz Klein","valorMensal":600,"dataInicio":"01/04/2026","mesesAtivos":2,"pctComissao":0.03,"valorComissao":18,"status":"normal","isManual":false},{"name":"Letícia Ruiz","valorMensal":700,"dataInicio":"01/04/2026","mesesAtivos":2,"pctComissao":0.03,"valorComissao":21,"status":"normal","isManual":false},{"name":"Engvale","valorMensal":1497,"dataInicio":"01/04/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":44.91,"status":"normal","isManual":false},{"name":"Henrique Dentista","valorMensal":1497,"dataInicio":"01/05/2026","mesesAtivos":1,"pctComissao":0.03,"valorComissao":44.91,"status":"normal","isManual":true}],"total":1371.88,"extras":[]},"AGO":{"clients":[],"total":0,"extras":[]},"SET":{"clients":[],"total":0,"extras":[]},"OUT":{"clients":[],"total":0,"extras":[]},"NOV":{"clients":[],"total":0,"extras":[]},"DEZ":{"clients":[],"total":0,"extras":[]}}');
+var MONTHS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
+var MONTH_LABELS = {JAN:'Janeiro',FEV:'Fevereiro',MAR:'Março',ABR:'Abril',MAI:'Maio',JUN:'Junho',JUL:'Julho',AGO:'Agosto',SET:'Setembro',OUT:'Outubro',NOV:'Novembro',DEZ:'Dezembro'};
+var SPREADSHEET_MONTHS = 7;
+var currentIdx = 6;
+var overrides = {};
+
+// === Supabase setup ===
+var SUPABASE_URL = 'https://cshbuzicdxkjuitfwzjf.supabase.co';
+var SUPABASE_KEY = 'sb_publishable_59suvF52PIdi7m_dar0jFg_5W0QNMpD';
+var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+var saveTimer = null;
+
+function fmt(v) {
+  if (v === null || v === undefined || v === '') return '—';
+  return 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function pct(v) { return (v*100).toFixed(0)+'%'; }
+function tierClass(m) { return m >= 8 ? 'tier-8' : m >= 4 ? 'tier-5' : 'tier-3'; }
+function commRate(m) { return m >= 8 ? 0.08 : m >= 4 ? 0.05 : 0.03; }
+
+function saveState() {
+  // Debounce — batches multiple rapid changes (e.g. quick sequential clicks)
+  if (saveTimer) clearTimeout(saveTimer);
+  saveTimer = setTimeout(_persistToSupabase, 250);
+  // Also save to localStorage as offline cache fallback
+  try {
+    var manual = {}, extras = {};
+    MONTHS.forEach(function(m) {
+      manual[m] = (DATA[m] && DATA[m].clients || []).filter(function(c){return c.isManual;});
+      extras[m] = DATA[m] && DATA[m].extras || [];
+    });
+    localStorage.setItem('comm_overrides', JSON.stringify(overrides));
+    localStorage.setItem('comm_manual', JSON.stringify(manual));
+    localStorage.setItem('comm_extras', JSON.stringify(extras));
+  } catch(e) {}
+}
+
+function _persistToSupabase() {
+  var manual = {}, extras = {};
+  MONTHS.forEach(function(m) {
+    manual[m] = (DATA[m] && DATA[m].clients || []).filter(function(c){return c.isManual;});
+    extras[m] = DATA[m] && DATA[m].extras || [];
+  });
+  var now = new Date().toISOString();
+  showSync('saving');
+  Promise.all([
+    sb.from('comissoes_state').upsert({id:'overrides', data:overrides, updated_at:now}),
+    sb.from('comissoes_state').upsert({id:'manual', data:manual, updated_at:now}),
+    sb.from('comissoes_state').upsert({id:'extras', data:extras, updated_at:now})
+  ]).then(function(results) {
+    var err = results.find(function(r){return r.error;});
+    if (err) {
+      console.error('Erro ao salvar:', err.error);
+      showSync('error');
+    } else {
+      showSync('ok');
+    }
+  }).catch(function(e) {
+    console.error('Erro:', e);
+    showSync('error');
+  });
+}
+
+function loadState(cb) {
+  showSync('loading');
+  sb.from('comissoes_state').select('id, data').then(function(res) {
+    if (res.error) {
+      console.error('Erro ao carregar:', res.error);
+      _loadFromLocalStorage();
+      showSync('offline');
+      cb && cb();
+      return;
+    }
+
+    var rows = res.data || [];
+
+    // If Supabase is empty but localStorage has data, migrate up
+    if (rows.length === 0 && _hasLocalStorageData()) {
+      console.log('Migrando localStorage → Supabase...');
+      _loadFromLocalStorage();
+      _persistToSupabase();
+      cb && cb();
+      return;
+    }
+
+    rows.forEach(function(row) {
+      if (row.id === 'overrides') overrides = row.data || {};
+      if (row.id === 'manual') {
+        var manual = row.data || {};
+        MONTHS.forEach(function(m) {
+          if (manual[m] && manual[m].length > 0 && DATA[m]) {
+            manual[m].forEach(function(mc) {
+              if (!DATA[m].clients.find(function(c){return c.name===mc.name;})) DATA[m].clients.push(mc);
+            });
+          }
+        });
+      }
+      if (row.id === 'extras') {
+        var ex = row.data || {};
+        MONTHS.forEach(function(m) { if (ex[m] && DATA[m]) DATA[m].extras = ex[m]; });
+      }
+    });
+    showSync('ok');
+    cb && cb();
+  });
+}
+
+function _hasLocalStorageData() {
+  try {
+    return !!(localStorage.getItem('comm_overrides')
+      || localStorage.getItem('comm_manual')
+      || localStorage.getItem('comm_extras'));
+  } catch(e) { return false; }
+}
+
+function _loadFromLocalStorage() {
+  try {
+    var so = localStorage.getItem('comm_overrides');
+    if (so) overrides = JSON.parse(so);
+    var sm = localStorage.getItem('comm_manual');
+    if (sm) {
+      var manual = JSON.parse(sm);
+      MONTHS.forEach(function(m) {
+        if (manual[m] && manual[m].length > 0 && DATA[m]) {
+          manual[m].forEach(function(mc) {
+            if (!DATA[m].clients.find(function(c){return c.name===mc.name;})) DATA[m].clients.push(mc);
+          });
+        }
+      });
+    }
+    var se = localStorage.getItem('comm_extras');
+    if (se) {
+      var ex = JSON.parse(se);
+      MONTHS.forEach(function(m) { if (ex[m] && DATA[m]) DATA[m].extras = ex[m]; });
+    }
+  } catch(e) {}
+}
+
+function showSync(state) {
+  var el = document.getElementById('syncStatus');
+  if (!el) return;
+  var labels = {
+    loading: '⟳ Carregando...',
+    saving:  '⟳ Salvando...',
+    ok:      '✓ Sincronizado',
+    error:   '✗ Erro ao salvar',
+    offline: '⚠ Offline (cache local)'
+  };
+  var colors = {
+    loading: 'var(--text-muted)',
+    saving:  'var(--text-muted)',
+    ok:      'var(--green)',
+    error:   'var(--red)',
+    offline: 'var(--orange)'
+  };
+  el.textContent = labels[state] || '';
+  el.style.color = colors[state] || 'var(--text-muted)';
+  if (state === 'ok') {
+    setTimeout(function() {
+      if (el.textContent === labels.ok) el.style.opacity = '0.4';
+    }, 1500);
+    el.style.opacity = '1';
+  } else {
+    el.style.opacity = '1';
+  }
+}
+
+// TIMELINE: single source of truth, computed from JUL base + monthly events
+// BASE_MONTH = JUL (index 6) — everything before is ignored
+var TIMELINE = {};
+var BASE_MONTH_IDX = 6; // JUL
+
+// Compute maturity for month X based on dataInicio
+// Formula: DATEDIF(start, monthRef, "m") + 1
+// monthRef = first day of the target month
+// For JUL 2026 reference: a client started Jun/2025 = 13 months
+function computeMaturity(dataInicioStr, monthIdx) {
+  if (!dataInicioStr) return 1;
+  var parts = dataInicioStr.split('/');
+  if (parts.length !== 3) return 1;
+  var startMonth = parseInt(parts[1]); // 1-12
+  var startYear = parseInt(parts[2]);
+
+  var targetMonth = monthIdx + 1; // JAN=1...DEZ=12
+  var targetYear = 2026;
+
+  // DATEDIF(start, ref, "m") + 1
+  // For Jun/2025 → Jul/2026: diff = 13, +1 = 14... but user wants 13.
+  // Actually DATEDIF gives complete months: Jun/2025 → Jul/2026 = 13 complete months
+  // So formula should be: full months between dates, then +1 gives wrong answer.
+  // Looking at expected: Jun/2025 → Jul/2026 = 13m means counting INCLUSIVE both endpoints.
+  // (2026-2025)*12 + (7-6) = 13. That IS the expected value (without +1).
+  // So the spec's "+1" means count both endpoints, which already happens with this math.
+  var months = (targetYear - startYear) * 12 + (targetMonth - startMonth) + 1;
+  return months;
+}
+
+function buildTimeline() {
+  TIMELINE = {};
+
+  // Months BEFORE JUL: just display historical data, status comes from spreadsheet + overrides
+  // These months are NEVER used as source for JUL or later
+  for (var i = 0; i < BASE_MONTH_IDX; i++) {
+    var month = MONTHS[i];
+    var d = DATA[month];
+    if (!d) continue;
+    var ovr = overrides[month] || {};
+    var clients = d.clients.map(function(c) {
+      var finalStatus = ovr[c.name] || c.status;
+      return {name:c.name, valorMensal:c.valorMensal, dataInicio:c.dataInicio, mesesAtivos:c.mesesAtivos, pctComissao:c.pctComissao, valorComissao:c.valorComissao, status:finalStatus, isManual:c.isManual};
+    });
+    TIMELINE[month] = {clients:clients, extras:d.extras||[]};
+  }
+
+  // JUL = BASE — use spreadsheet data, BUT bump maturity by +1 (spec correction)
+  // The spreadsheet has maturity 1 month behind the formula
+  // Then % and commission recomputed from corrected maturity
+  var julMonth = MONTHS[BASE_MONTH_IDX];
+  var julD = DATA[julMonth];
+  if (julD) {
+    var julOvr = overrides[julMonth] || {};
+    var julClients = julD.clients.map(function(c) {
+      // Clients new in JUL (Henrique etc.) keep maturity = 1
+      var mesesAtivos = c.isManual ? (c.mesesAtivos || 1) : ((c.mesesAtivos || 0) + 1);
+      var rate = commRate(mesesAtivos);
+      var valorComissao = +(c.valorMensal * rate).toFixed(2);
+      var finalStatus = julOvr[c.name] || c.status;
+      return {name:c.name, valorMensal:c.valorMensal, dataInicio:c.dataInicio, mesesAtivos:mesesAtivos, pctComissao:rate, valorComissao:valorComissao, status:finalStatus, isManual:c.isManual};
+    });
+    TIMELINE[julMonth] = {clients:julClients, extras:julD.extras||[]};
+  }
+
+  // AGO onward: chronological propagation
+  for (var i = BASE_MONTH_IDX + 1; i < MONTHS.length; i++) {
+    var month = MONTHS[i];
+    var prevMonth = MONTHS[i-1];
+    var prev = TIMELINE[prevMonth];
+    if (!prev) { TIMELINE[month] = {clients:[], extras:DATA[month]&&DATA[month].extras||[]}; continue; }
+    var ovr = overrides[month] || {};
+
+    var carried = prev.clients
+      .filter(function(c) { return c.status !== 'cancelando'; })
+      .map(function(c) {
+        var inherited = c.status;
+        var finalStatus = ovr[c.name] || inherited;
+
+        // Maturity: increment only if inherited was ACTIVE (not paused)
+        // PROTECTION: once paused, never auto-reactivate
+        var mesesAtivos, rate, valorComissao;
+        if (inherited === 'pausado') {
+          mesesAtivos = c.mesesAtivos; // freeze
+          rate = c.pctComissao;          // freeze
+          valorComissao = c.valorComissao; // freeze
+        } else {
+          mesesAtivos = c.mesesAtivos + 1;
+          rate = commRate(mesesAtivos);
+          valorComissao = +(c.valorMensal * rate).toFixed(2);
+        }
+
+        return {name:c.name, valorMensal:c.valorMensal, dataInicio:c.dataInicio, mesesAtivos:mesesAtivos, pctComissao:rate, valorComissao:valorComissao, status:finalStatus, isManual:false};
+      });
+
+    var thisManual = (DATA[month] && DATA[month].clients || []).filter(function(c){return c.isManual;});
+    thisManual.forEach(function(mc) {
+      if (!carried.find(function(c){return c.name===mc.name;})) carried.push(mc);
+    });
+
+    TIMELINE[month] = {clients:carried, extras:DATA[month]&&DATA[month].extras||[]};
+  }
+}
+
+function computeDiff(monthIdx) {
+  // JUL is base — no diff
+  if (monthIdx <= BASE_MONTH_IDX) return null;
+  var prevM = MONTHS[monthIdx-1], currM = MONTHS[monthIdx];
+  var prev = TIMELINE[prevM], curr = TIMELINE[currM];
+  if (!prev || !curr) return null;
+
+  var prevNames = {};
+  prev.clients.forEach(function(c){prevNames[c.name]=true;});
+  var currNames = {};
+  curr.clients.forEach(function(c){currNames[c.name]=true;});
+
+  var added = curr.clients.filter(function(c){return !prevNames[c.name];});
+  var removed = prev.clients.filter(function(c){ return !currNames[c.name]; });
+
+  // STATUS of month M = manual events of month M-1
+  // The diff shows what changed when the user acted in M-1
+  var statusChanged = [];
+  var prevOvr = overrides[prevM] || {};
+
+  Object.keys(prevOvr).forEach(function(name) {
+    var inheritedInPrev;
+
+    if (monthIdx - 1 === BASE_MONTH_IDX) {
+      // Prev month is JUL (BASE). Inherited = original JUL status from spreadsheet.
+      // NEVER compare with JUN — JUN is irrelevant.
+      var base = (DATA[MONTHS[BASE_MONTH_IDX]] && DATA[MONTHS[BASE_MONTH_IDX]].clients || [])
+        .find(function(c){return c.name===name;});
+      inheritedInPrev = base ? base.status : 'normal';
+    } else {
+      // For AGO+, inherited = final status of M-2 (= what JUL passed to AGO before AGO events)
+      var prevPrev = TIMELINE[MONTHS[monthIdx-2]];
+      var pp = prevPrev ? prevPrev.clients.find(function(c){return c.name===name;}) : null;
+      inheritedInPrev = pp ? pp.status : 'normal';
+    }
+
+    var eventStatus = prevOvr[name];
+    if (inheritedInPrev !== eventStatus) {
+      statusChanged.push({name:name, from:inheritedInPrev, to:eventStatus});
+    }
+  });
+
+  return {added:added, removed:removed, statusChanged:statusChanged};
+}
+var STATUS_LABELS = {normal:'Ativo', pausado:'Pausado', cancelando:'Cancelando'};
+
+function changeStatus(clientName, newStatus, selectEl) {
+  var month = MONTHS[currentIdx];
+  if (!overrides[month]) overrides[month] = {};
+  overrides[month][clientName] = newStatus;
+
+  // CRITICAL: Clear "stale" overrides in future months for this client.
+  // Rationale: the most recent action by the user must always win.
+  // If user later wants a different status in a future month, they will set it again.
+  for (var i = currentIdx + 1; i < MONTHS.length; i++) {
+    var m = MONTHS[i];
+    if (overrides[m] && overrides[m][clientName] !== undefined) {
+      delete overrides[m][clientName];
+      if (Object.keys(overrides[m]).length === 0) delete overrides[m];
+    }
+  }
+
+  saveState();
+  render();
+}
+
+function openExtraModal() {
+  document.getElementById('extraDesc').value='';
+  document.getElementById('extraValor').value='';
+  document.querySelector('input[name="extraStatus"][value="pago"]').checked = true;
+  document.getElementById('extraValorRow').style.display = '';
+  document.getElementById('modalExtraOverlay').classList.add('open');
+  setTimeout(function(){document.getElementById('extraDesc').focus();},50);
+  document.querySelectorAll('input[name="extraStatus"]').forEach(function(r) {
+    r.onchange = function() { document.getElementById('extraValorRow').style.display = r.value === 'pendente' ? 'none' : ''; };
+  });
+}
+function closeExtraModal() { document.getElementById('modalExtraOverlay').classList.remove('open'); }
+function addExtra() {
+  var desc = document.getElementById('extraDesc').value.trim();
+  var statusRadio = document.querySelector('input[name="extraStatus"]:checked').value;
+  var valor;
+  if (statusRadio === 'pendente') {
+    valor = '?';
+    if (!desc) { alert('Preencha a descrição.'); return; }
+  } else {
+    valor = parseFloat(document.getElementById('extraValor').value) || 0;
+    if (!desc || valor <= 0) { alert('Preencha descrição e valor.'); return; }
+  }
+  var month = MONTHS[currentIdx];
+  if (!DATA[month].extras) DATA[month].extras = [];
+  DATA[month].extras.push({descricao:desc, valor:valor, isManual:true});
+  saveState(); closeExtraModal(); render();
+}
+function removeExtra(idx) {
+  DATA[MONTHS[currentIdx]].extras.splice(idx, 1);
+  saveState(); render();
+}
+
+function openModal() {
+  document.getElementById('newName').value='';
+  document.getElementById('newValor').value='';
+  document.getElementById('newClientPreview').textContent='';
+  document.getElementById('modalOverlay').classList.add('open');
+  setTimeout(function(){document.getElementById('newName').focus();},50);
+  document.getElementById('newName').oninput = updatePreview;
+  document.getElementById('newValor').oninput = updatePreview;
+}
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+function updatePreview() {
+  var valor = parseFloat(document.getElementById('newValor').value) || 0;
+  var prev = document.getElementById('newClientPreview');
+  if (valor > 0) { prev.textContent = 'Mês 1 → 3% → comissão de ' + fmt(+(valor*0.03).toFixed(2)); prev.style.color='var(--green)'; }
+  else prev.textContent = '';
+}
+function removeClient(name) {
+  if (!confirm('Apagar o cliente "' + name + '" deste mês em diante?')) return;
+  var startIdx = currentIdx;
+  // Remove from current month and all future months in DATA
+  for (var i = startIdx; i < MONTHS.length; i++) {
+    var m = MONTHS[i];
+    if (DATA[m] && DATA[m].clients) {
+      DATA[m].clients = DATA[m].clients.filter(function(c){return c.name !== name;});
+    }
+    // Also drop any override for this client in future months
+    if (overrides[m] && overrides[m][name] !== undefined) {
+      delete overrides[m][name];
+      if (Object.keys(overrides[m]).length === 0) delete overrides[m];
+    }
+  }
+  saveState();
+  render();
+}
+
+function addClient() {
+  var name = document.getElementById('newName').value.trim();
+  var valor = parseFloat(document.getElementById('newValor').value) || 0;
+  if (!name || valor <= 0) { alert('Preencha nome e mensalidade.'); return; }
+  var month = MONTHS[currentIdx];
+  DATA[month].clients.push({name:name, valorMensal:valor, dataInicio:'', mesesAtivos:1, pctComissao:0.03, valorComissao:+(valor*0.03).toFixed(2), status:'normal', isManual:true});
+  saveState(); closeModal(); render();
+}
+
+function renderHeaderSub() {
+  var month = MONTHS[currentIdx], next = MONTHS[currentIdx+1];
+  var el = document.getElementById('headerSub');
+  if (el) el.textContent = next
+    ? 'Competência: ' + MONTH_LABELS[month] + ' · Recebimento: ' + MONTH_LABELS[next] + ' 2026'
+    : 'Competência: ' + MONTH_LABELS[month] + ' 2026';
+}
+
+function renderNav() {
+  var nav = document.getElementById('monthNav');
+  var html = '<button class="nav-arrow" id="prevBtn" onclick="navigate(-1)">&#8592;</button>';
+  MONTHS.forEach(function(m, i) {
+    html += '<button class="month-btn' + (i===currentIdx?' active':'') + '" onclick="setMonth('+i+')">'+m+'</button>';
+  });
+  html += '<button class="nav-arrow" id="nextBtn" onclick="navigate(1)">&#8594;</button>';
+  nav.innerHTML = html;
+  document.getElementById('prevBtn').disabled = currentIdx === 0;
+  document.getElementById('nextBtn').disabled = currentIdx === MONTHS.length - 1;
+}
+
+function navigate(dir) {
+  var next = currentIdx + dir;
+  if (next >= 0 && next < MONTHS.length) { currentIdx = next; render(); }
+}
+function setMonth(i) { currentIdx = i; render(); }
+
+function statusSelectHtml(clientName, status) {
+  var safe = clientName.replace(/'/g, "\\'");
+  return '<select class="status-select s-' + status + '" onchange="changeStatus(\'' + safe + '\', this.value, this)">'
+    + '<option value="normal"' + (status==='normal'?' selected':'') + '>Ativo</option>'
+    + '<option value="pausado"' + (status==='pausado'?' selected':'') + '>Pausado</option>'
+    + '<option value="cancelando"' + (status==='cancelando'?' selected':'') + '>Cancelando</option>'
+    + '</select>';
+}
+
+function render() {
+  buildTimeline();
+  renderNav();
+  renderHeaderSub();
+  var month = MONTHS[currentIdx];
+  var t = TIMELINE[month];
+  if (!t) return;
+
+  var activeClients = t.clients.filter(function(c){return c.status==='normal';});
+  var pausedClients = t.clients.filter(function(c){return c.status==='pausado';});
+  var cancellingClients = t.clients.filter(function(c){return c.status==='cancelando';});
+
+  var totalComissao = activeClients.reduce(function(s,c){return s+c.valorComissao;}, 0);
+  var extrasTotal = (t.extras||[]).reduce(function(s,e){return s+(typeof e.valor==='number'?e.valor:0);}, 0);
+  var totalGeral = totalComissao + extrasTotal;
+
+  var nextLabel = MONTH_LABELS[MONTHS[currentIdx+1]] || 'Janeiro 2027';
+
+  // Diff
+  var diff = computeDiff(currentIdx);
+  var diffHtml = '';
+  if (diff) {
+    diffHtml = '<div class="section-title">Mudanças de ' + MONTH_LABELS[MONTHS[currentIdx-1]] + ' para ' + MONTH_LABELS[month] + '</div>'
+      + '<div class="diff-grid">'
+      + '<div class="diff-card"><div class="diff-card-title added">&#43; Entradas (' + diff.added.length + ')</div>';
+    if (diff.added.length === 0) diffHtml += '<div class="diff-empty">Nenhum cliente novo</div>';
+    else diff.added.forEach(function(c) { diffHtml += '<div class="diff-item"><span>'+c.name+'</span></div>'; });
+    diffHtml += '</div><div class="diff-card"><div class="diff-card-title removed">&#8722; Saídas (' + diff.removed.length + ')</div>';
+    if (diff.removed.length === 0) diffHtml += '<div class="diff-empty">Nenhuma saída</div>';
+    else diff.removed.forEach(function(c) { diffHtml += '<div class="diff-item"><span>'+c.name+'</span></div>'; });
+    diffHtml += '</div><div class="diff-card"><div class="diff-card-title changed">&#8635; Status (' + diff.statusChanged.length + ')</div>';
+    if (diff.statusChanged.length === 0) diffHtml += '<div class="diff-empty">Nenhuma alteração</div>';
+    else {
+      diffHtml += '<div class="diff-scroll">';
+      diff.statusChanged.forEach(function(c) { diffHtml += '<div class="diff-item"><span>'+c.name+'</span><span style="font-size:11px;color:var(--text-muted)">'+(STATUS_LABELS[c.from]||c.from)+' &#8594; '+(STATUS_LABELS[c.to]||c.to)+'</span></div>'; });
+      diffHtml += '</div>';
+    }
+    diffHtml += '</div></div>';
+  }
+
+  // Extras
+  var pendingExtras = (t.extras||[]).filter(function(e){return e.valor==='?'||e.valor===null;});
+  var hasExtras = t.extras && t.extras.length > 0;
+  var extrasHtml = '<div class="section-title" style="display:flex;align-items:center;justify-content:space-between"><span>Receitas Adicionais do Mês</span>'
+    + '<div style="display:flex;align-items:center;gap:12px">';
+  if (extrasTotal > 0) extrasHtml += '<span style="font-size:13px;color:var(--purple);font-weight:600">+' + fmt(extrasTotal) + (pendingExtras.length > 0 ? ' · ' + pendingExtras.length + ' pendente(s)' : '') + '</span>';
+  extrasHtml += '<button class="btn btn-primary" style="font-size:12px;padding:4px 12px" onclick="openExtraModal()">+ Receita</button></div></div>';
+  extrasHtml += '<div class="table-wrap" style="margin-bottom:24px"><div style="padding:16px 18px">';
+  if (hasExtras) {
+    extrasHtml += '<div class="extras-list">';
+    t.extras.forEach(function(e, ei) {
+      extrasHtml += '<div class="extra-item"><span class="extra-desc">' + e.descricao + '</span>';
+      if (e.isManual) extrasHtml += '<button onclick="removeExtra('+ei+')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;margin-right:4px">✕</button>';
+      var valClass = (e.valor === '?' || e.valor === null) ? ' unknown' : '';
+      var valText = e.valor === '?' ? 'Pendente' : (e.valor === null ? '—' : fmt(e.valor));
+      extrasHtml += '<span class="extra-val' + valClass + '">' + valText + '</span></div>';
+    });
+    extrasHtml += '</div>';
+  } else {
+    extrasHtml += '<span style="color:var(--text-muted);font-size:13px;font-style:italic">Nenhuma receita adicional neste mês.</span>';
+  }
+  extrasHtml += '</div></div>';
+
+  // Table rows (alphabetical)
+  var allClients = t.clients.slice().sort(function(a,b){return a.name.localeCompare(b.name,'pt-BR');});
+  var tableRows = '';
+  allClients.forEach(function(c) {
+    var rowClass = c.status + (c.isManual ? ' novo' : '');
+    var nameSafe = c.name.replace(/'/g, "\\'");
+    var deleteBtn = c.isManual ? '<button onclick="removeClient(\'' + nameSafe + '\')" title="Apagar cliente" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;margin-left:8px;opacity:0.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">✕</button>' : '';
+    tableRows += '<tr class="' + rowClass + '">'
+      + '<td class="name-cell">' + c.name + deleteBtn + '</td>'
+      + '<td class="right">' + fmt(c.valorMensal) + '</td>'
+      + '<td class="right"><span class="tier ' + tierClass(c.mesesAtivos) + '">' + c.mesesAtivos + 'm' + (c.mesesAtivos >= 12 ? ' ⭐' : '') + '</span></td>'
+      + '<td class="right">' + pct(c.pctComissao) + '</td>'
+      + '<td class="right' + (c.valorComissao===0?' comm-zero':'') + '">' + (c.valorComissao===0?'—':fmt(c.valorComissao)) + '</td>'
+      + '<td>' + statusSelectHtml(c.name, c.status) + '</td>'
+      + '</tr>';
+  });
+
+  // Assemble
+  var html = '<div class="summary">'
+    + '<div class="card" style="grid-column:span 2;border-color:rgba(52,211,153,0.4);background:rgba(52,211,153,0.05)">'
+    + '<div class="card-label">Total geral</div>'
+    + '<div class="card-value green" style="font-size:34px" id="summary-total">' + fmt(totalGeral) + '</div>'
+    + '<div class="card-sub" id="summary-sub">a receber em ' + nextLabel + (extrasTotal > 0 ? ' · inclui ' + fmt(extrasTotal) + ' em extras' : '') + '</div>'
+    + '</div>';
+  if (extrasTotal > 0) {
+    html += '<div class="card"><div class="card-label">Receitas adicionais</div><div class="card-value" style="color:var(--purple)">' + fmt(extrasTotal) + '</div><div class="card-sub">vendas & indicações do mês</div></div>';
+  }
+  html += '<div class="card"><div class="card-label">Pausados</div><div class="card-value yellow" id="summary-paused">' + pausedClients.length + '</div>'
+    + '<div class="card-sub" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)" id="summary-active">' + activeClients.length + ' clientes ativos</div></div>';
+  if (cancellingClients.length > 0) {
+    html += '<div class="card"><div class="card-label">Cancelando</div><div class="card-value" style="color:var(--orange)">' + cancellingClients.length + '</div><div class="card-sub">saem no próximo mês</div></div>';
+  }
+  html += '</div>';
+  html += diffHtml;
+  html += '<div class="section-title" style="display:flex;align-items:center;justify-content:space-between"><span>Clientes — ' + MONTH_LABELS[month] + '</span>'
+    + '<button class="btn btn-primary" style="font-size:13px;padding:5px 14px" onclick="openModal()">+ Novo cliente</button></div>';
+  html += '<div class="table-wrap"><table><thead><tr><th>Cliente</th><th class="right">Mensalidade</th><th class="right">Maturidade</th><th class="right">% Comissão</th><th class="right">Comissão</th><th>Status</th></tr></thead><tbody>' + tableRows + '</tbody></table></div>';
+  html += extrasHtml;
+  document.getElementById('main').innerHTML = html;
+}
+
+loadState(function() { render(); });
+</script>
+</body>
+</html>
