@@ -85,10 +85,65 @@
   .btn-primary:hover { background: var(--accent); }
   .btn-ghost { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
   .btn-ghost:hover { color: var(--text); }
-  @media (max-width: 700px) {
+  /* Tablet */
+  @media (max-width: 900px) {
     .diff-grid { grid-template-columns: 1fr; }
-    .summary { grid-template-columns: 1fr 1fr; }
-    .header { flex-direction: column; gap: 16px; align-items: flex-start; }
+  }
+
+  /* Mobile */
+  @media (max-width: 700px) {
+    .header { flex-direction: column; gap: 12px; align-items: stretch; padding: 14px 16px; }
+    .header h1 { font-size: 17px; }
+    #headerSub { font-size: 11px; }
+    .month-nav { width: 100%; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+    .month-nav::-webkit-scrollbar { height: 4px; }
+    .month-nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .month-btn { padding: 6px 10px; font-size: 12px; flex-shrink: 0; }
+    .nav-arrow { width: 30px; height: 30px; flex-shrink: 0; }
+
+    .main { padding: 16px 12px; }
+    .summary { grid-template-columns: 1fr; gap: 10px; margin-bottom: 18px; }
+    .card { padding: 14px 16px; }
+    .card[style*="grid-column:span 2"], .card[style*="grid-column: span 2"] { grid-column: span 1 !important; }
+    .card-value { font-size: 22px; }
+    .card-value[style*="font-size:34px"] { font-size: 28px !important; }
+
+    .section-title { font-size: 13px; }
+
+    /* Table → card view */
+    .table-wrap table thead { display: none; }
+    .table-wrap table, .table-wrap tbody, .table-wrap tr, .table-wrap td { display: block; width: 100%; }
+    .table-wrap tr { padding: 12px 14px; border-bottom: 1px solid rgba(51,65,85,0.5); position: relative; }
+    .table-wrap tr:last-child { border-bottom: none; }
+    .table-wrap td { padding: 3px 0; border: none; font-size: 13px; text-align: left !important; display: flex; justify-content: space-between; align-items: center; }
+    .table-wrap td.name-cell { font-size: 15px; font-weight: 600; margin-bottom: 6px; padding-right: 90px; }
+    .table-wrap td:not(.name-cell)::before { content: attr(data-label); color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .table-wrap td:last-child { position: absolute; top: 12px; right: 14px; padding: 0; max-width: 110px; }
+    .table-wrap td:last-child::before { display: none; }
+    tr.pausado, tr.cancelando, tr.novo { border-left-width: 3px; border-left-style: solid; padding-left: 14px; }
+
+    .status-select { width: auto; min-width: 90px; }
+    .tier { padding: 2px 6px; }
+
+    .diff-card { padding: 12px 14px; }
+    .diff-item { font-size: 12px; padding: 4px 0; }
+    .extras-list { gap: 6px; }
+    .extra-item { font-size: 12px; padding: 6px 10px; }
+
+    .modal { padding: 22px 20px; width: 92vw; }
+    .modal h2 { font-size: 15px; margin-bottom: 14px; }
+    .form-row { margin-bottom: 12px; }
+    .form-row input { font-size: 16px; } /* 16px prevents iOS zoom */
+
+    #syncStatus { font-size: 10px; }
+  }
+
+  /* Very small screens */
+  @media (max-width: 380px) {
+    .header h1 { font-size: 15px; }
+    .month-btn { padding: 5px 8px; font-size: 11px; }
+    .card-value { font-size: 20px; }
+    .card-value[style*="font-size:34px"] { font-size: 24px !important; }
   }
 </style>
 <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
@@ -664,10 +719,10 @@ function render() {
     var deleteBtn = c.isManual ? '<button onclick="removeClient(\'' + nameSafe + '\')" title="Apagar cliente" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;margin-left:8px;opacity:0.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">✕</button>' : '';
     tableRows += '<tr class="' + rowClass + '">'
       + '<td class="name-cell">' + c.name + deleteBtn + '</td>'
-      + '<td class="right">' + fmt(c.valorMensal) + '</td>'
-      + '<td class="right"><span class="tier ' + tierClass(c.mesesAtivos) + '">' + c.mesesAtivos + 'm' + (c.mesesAtivos >= 12 ? ' ⭐' : '') + '</span></td>'
-      + '<td class="right">' + pct(c.pctComissao) + '</td>'
-      + '<td class="right' + (c.valorComissao===0?' comm-zero':'') + '">' + (c.valorComissao===0?'—':fmt(c.valorComissao)) + '</td>'
+      + '<td class="right" data-label="Mensalidade">' + fmt(c.valorMensal) + '</td>'
+      + '<td class="right" data-label="Maturidade"><span class="tier ' + tierClass(c.mesesAtivos) + '">' + c.mesesAtivos + 'm' + (c.mesesAtivos >= 12 ? ' ⭐' : '') + '</span></td>'
+      + '<td class="right" data-label="% Comissão">' + pct(c.pctComissao) + '</td>'
+      + '<td class="right' + (c.valorComissao===0?' comm-zero':'') + '" data-label="Comissão">' + (c.valorComissao===0?'—':fmt(c.valorComissao)) + '</td>'
       + '<td>' + statusSelectHtml(c.name, c.status) + '</td>'
       + '</tr>';
   });
