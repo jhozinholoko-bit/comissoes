@@ -7,33 +7,36 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #0f172a; --surface: #1e293b; --surface2: #263346; --border: #334155;
-    --text: #f1f5f9; --text-muted: #94a3b8; --accent: #818cf8; --accent2: #6366f1;
+    --bg: #0a0f1c; --surface: #151b2a; --surface2: #1e2638; --border: #2a3447;
+    --text: #f1f5f9; --text-muted: #8a94a8; --accent: #818cf8; --accent2: #6366f1;
     --green: #34d399; --yellow: #fbbf24; --orange: #f97316; --red: #f87171; --purple: #c084fc;
+    --shadow: 0 1px 3px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.1);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.3);
   }
-  body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
   .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; }
   .header h1 { font-size: 20px; font-weight: 700; }
   .header h1 span { color: var(--accent); }
   .month-nav { display: flex; align-items: center; gap: 8px; }
-  .month-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.15s; }
-  .month-btn:hover { background: var(--accent2); border-color: var(--accent); }
-  .month-btn.active { background: var(--accent2); border-color: var(--accent); color: #fff; }
+  .month-btn { background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); padding: 6px 14px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.15s; letter-spacing: 0.02em; }
+  .month-btn:hover { background: var(--surface); border-color: var(--accent); color: var(--text); }
+  .month-btn.active { background: linear-gradient(135deg, var(--accent2), var(--accent)); border-color: var(--accent); color: #fff; box-shadow: 0 2px 8px rgba(99,102,241,0.3); }
   .nav-arrow { background: var(--surface2); border: 1px solid var(--border); color: var(--text); width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
   .nav-arrow:hover:not(:disabled) { background: var(--accent2); border-color: var(--accent); }
   .nav-arrow:disabled { opacity: 0.3; cursor: not-allowed; }
   .main { max-width: 1100px; margin: 0 auto; padding: 28px 24px; }
   .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; box-shadow: var(--shadow); transition: border-color 0.15s; }
+  .card:hover { border-color: rgba(129,140,248,0.3); }
   .card-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px; }
   .card-value { font-size: 26px; font-weight: 700; }
   .card-value.green { color: var(--green); }
   .card-value.yellow { color: var(--yellow); }
   .card-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
   .section-title { font-size: 15px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
-  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 24px; }
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 24px; box-shadow: var(--shadow); }
   table { width: 100%; border-collapse: collapse; }
-  th { background: var(--surface2); color: var(--text-muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: var(--surface2); color: var(--text-muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
   th.right, td.right { text-align: right; }
   td { padding: 11px 16px; font-size: 14px; border-bottom: 1px solid rgba(51,65,85,0.5); }
   tr:last-child td { border-bottom: none; }
@@ -71,6 +74,10 @@
   .extra-val { font-weight: 700; color: var(--purple); }
   .extra-val.unknown { color: var(--text-muted); font-style: italic; }
   .comm-zero { color: var(--text-muted); }
+  .comm-cell { cursor: pointer; transition: background 0.12s; border-radius: 4px; position: relative; }
+  .comm-cell:hover { background: rgba(129,140,248,0.1); color: var(--accent); }
+  .comm-cell::after { content: '✎'; position: absolute; right: -2px; top: 50%; transform: translateY(-50%); font-size: 10px; opacity: 0; color: var(--accent); transition: opacity 0.12s; }
+  .comm-cell:hover::after { opacity: 0.6; }
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
   .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px 32px; width: 420px; max-width: 95vw; }
@@ -111,15 +118,47 @@
 
     .section-title { font-size: 13px; }
 
-    /* Table → card view */
+    /* Accordion-style card view */
     .table-wrap table thead { display: none; }
     .table-wrap table, .table-wrap tbody, .table-wrap tr, .table-wrap td { display: block; width: 100%; }
-    .table-wrap tr { padding: 12px 14px; border-bottom: 1px solid rgba(51,65,85,0.5); position: relative; }
+    .table-wrap tr { padding: 14px 16px; border-bottom: 1px solid rgba(51,65,85,0.5); position: relative; cursor: pointer; }
     .table-wrap tr:last-child { border-bottom: none; }
     .table-wrap td { padding: 3px 0; border: none; font-size: 13px; text-align: left !important; display: flex; justify-content: space-between; align-items: center; }
-    .table-wrap td.name-cell { font-size: 15px; font-weight: 600; margin-bottom: 6px; padding-right: 90px; }
-    .table-wrap td:not(.name-cell)::before { content: attr(data-label); color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .table-wrap td:last-child { position: absolute; top: 12px; right: 14px; padding: 0; max-width: 110px; }
+
+    /* Collapsed state: only name + commission visible */
+    .table-wrap td.name-cell {
+      font-size: 15px; font-weight: 600;
+      padding-right: 24px; /* room for chevron */
+      margin-bottom: 0;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .table-wrap td.name-cell::after {
+      content: '▾'; position: absolute; right: 16px; top: 18px;
+      font-size: 13px; color: var(--text-muted); transition: transform 0.2s;
+    }
+    .table-wrap tr.expanded td.name-cell::after { transform: rotate(180deg); }
+
+    /* Hide detail cells when collapsed; commission stays visible as line under name */
+    .table-wrap td[data-label="Mensalidade"],
+    .table-wrap td[data-label="Maturidade"],
+    .table-wrap td[data-label="% Comissão"] { display: none; padding-left: 2px; }
+    .table-wrap tr.expanded td[data-label="Mensalidade"],
+    .table-wrap tr.expanded td[data-label="Maturidade"],
+    .table-wrap tr.expanded td[data-label="% Comissão"] { display: flex; padding-top: 8px; }
+    .table-wrap td::before { content: attr(data-label); color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* Commission stays visible (collapsed) — shown as a sub-line under name */
+    .table-wrap td.comm-cell {
+      margin-top: 4px;
+      font-size: 15px; font-weight: 700; color: var(--green);
+    }
+    .table-wrap td.comm-cell::before { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+
+    /* Status cell pinned at top right */
+    .table-wrap td:last-child {
+      position: absolute; top: 14px; right: 44px;
+      padding: 0; max-width: 110px;
+    }
     .table-wrap td:last-child::before { display: none; }
     tr.pausado, tr.cancelando, tr.novo { border-left-width: 3px; border-left-style: solid; padding-left: 14px; }
 
@@ -159,7 +198,7 @@
   <div style="display:flex;align-items:center;gap:12px">
     <div class="month-nav" id="monthNav"></div>
     <span id="syncStatus" style="font-size:11px;color:var(--text-muted);transition:opacity 0.3s">⟳ Carregando...</span>
-    <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;opacity:0.5" onclick="if(confirm('Limpar TODOS os dados (Supabase + local)?')){sb.from('comissoes_state').delete().neq('id','xxxxxxx').then(function(){localStorage.clear();location.reload();});}">↺ Reset</button>
+    <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;opacity:0.5" onclick="if(confirm('Limpar TODOS os dados (Supabase + local)?')){sb.from('comissoes_state').delete().neq('id','xxxxxxx').then(function(){localStorage.removeItem('comm_overrides');localStorage.removeItem('comm_manual');localStorage.removeItem('comm_extras');localStorage.removeItem('comm_valueOverrides');location.reload();});}">↺ Reset</button>
   </div>
 </div>
 
@@ -204,6 +243,9 @@ var MONTH_LABELS = {JAN:'Janeiro',FEV:'Fevereiro',MAR:'Março',ABR:'Abril',MAI:'
 var SPREADSHEET_MONTHS = 7;
 var currentIdx = 6;
 var overrides = {};
+// valueOverrides: edits to client values (commission, monthly value, etc.) that propagate forward
+// Structure: { 'AGO': { 'Braptec': { valorComissao: 100, valorMensal: 1500 } } }
+var valueOverrides = {};
 
 // === Supabase setup ===
 var SUPABASE_URL = 'https://cshbuzicdxkjuitfwzjf.supabase.co';
@@ -233,6 +275,7 @@ function saveState() {
     localStorage.setItem('comm_overrides', JSON.stringify(overrides));
     localStorage.setItem('comm_manual', JSON.stringify(manual));
     localStorage.setItem('comm_extras', JSON.stringify(extras));
+    localStorage.setItem('comm_valueOverrides', JSON.stringify(valueOverrides));
   } catch(e) {}
 }
 
@@ -247,7 +290,8 @@ function _persistToSupabase() {
   Promise.all([
     sb.from('comissoes_state').upsert({id:'overrides', data:overrides, updated_at:now}),
     sb.from('comissoes_state').upsert({id:'manual', data:manual, updated_at:now}),
-    sb.from('comissoes_state').upsert({id:'extras', data:extras, updated_at:now})
+    sb.from('comissoes_state').upsert({id:'extras', data:extras, updated_at:now}),
+    sb.from('comissoes_state').upsert({id:'valueOverrides', data:valueOverrides, updated_at:now})
   ]).then(function(results) {
     var err = results.find(function(r){return r.error;});
     if (err) {
@@ -286,6 +330,7 @@ function loadState(cb) {
 
     rows.forEach(function(row) {
       if (row.id === 'overrides') overrides = row.data || {};
+      if (row.id === 'valueOverrides') valueOverrides = row.data || {};
       if (row.id === 'manual') {
         var manual = row.data || {};
         MONTHS.forEach(function(m) {
@@ -318,6 +363,8 @@ function _loadFromLocalStorage() {
   try {
     var so = localStorage.getItem('comm_overrides');
     if (so) overrides = JSON.parse(so);
+    var svo = localStorage.getItem('comm_valueOverrides');
+    if (svo) valueOverrides = JSON.parse(svo);
     var sm = localStorage.getItem('comm_manual');
     if (sm) {
       var manual = JSON.parse(sm);
@@ -364,6 +411,30 @@ function showSync(state) {
   } else {
     el.style.opacity = '1';
   }
+}
+
+// Get the most recent value override for a client/field at or before monthIdx
+function getValueOverride(name, field, monthIdx) {
+  for (var i = monthIdx; i >= BASE_MONTH_IDX; i--) {
+    var m = MONTHS[i];
+    if (valueOverrides[m] && valueOverrides[m][name] && valueOverrides[m][name][field] !== undefined) {
+      return valueOverrides[m][name][field];
+    }
+  }
+  return undefined;
+}
+
+// Apply value overrides to a client at given monthIdx
+function applyValueOverrides(client, monthIdx) {
+  var ovComm = getValueOverride(client.name, 'valorComissao', monthIdx);
+  if (ovComm !== undefined) client.valorComissao = ovComm;
+  var ovMensal = getValueOverride(client.name, 'valorMensal', monthIdx);
+  if (ovMensal !== undefined) client.valorMensal = ovMensal;
+  var ovMat = getValueOverride(client.name, 'mesesAtivos', monthIdx);
+  if (ovMat !== undefined) client.mesesAtivos = ovMat;
+  var ovPct = getValueOverride(client.name, 'pctComissao', monthIdx);
+  if (ovPct !== undefined) client.pctComissao = ovPct;
+  return client;
 }
 
 // TIMELINE: single source of truth, computed from JUL base + monthly events
@@ -421,12 +492,12 @@ function buildTimeline() {
   if (julD) {
     var julOvr = overrides[julMonth] || {};
     var julClients = julD.clients.map(function(c) {
-      // Clients new in JUL (Henrique etc.) keep maturity = 1
       var mesesAtivos = c.isManual ? (c.mesesAtivos || 1) : ((c.mesesAtivos || 0) + 1);
       var rate = commRate(mesesAtivos);
       var valorComissao = +(c.valorMensal * rate).toFixed(2);
       var finalStatus = julOvr[c.name] || c.status;
-      return {name:c.name, valorMensal:c.valorMensal, dataInicio:c.dataInicio, mesesAtivos:mesesAtivos, pctComissao:rate, valorComissao:valorComissao, status:finalStatus, isManual:c.isManual};
+      var client = {name:c.name, valorMensal:c.valorMensal, dataInicio:c.dataInicio, mesesAtivos:mesesAtivos, pctComissao:rate, valorComissao:valorComissao, status:finalStatus, isManual:c.isManual};
+      return applyValueOverrides(client, BASE_MONTH_IDX);
     });
     TIMELINE[julMonth] = {clients:julClients, extras:julD.extras||[]};
   }
@@ -458,7 +529,8 @@ function buildTimeline() {
           valorComissao = +(c.valorMensal * rate).toFixed(2);
         }
 
-        return {name:c.name, valorMensal:c.valorMensal, dataInicio:c.dataInicio, mesesAtivos:mesesAtivos, pctComissao:rate, valorComissao:valorComissao, status:finalStatus, isManual:false};
+        var client = {name:c.name, valorMensal:c.valorMensal, dataInicio:c.dataInicio, mesesAtivos:mesesAtivos, pctComissao:rate, valorComissao:valorComissao, status:finalStatus, isManual:false};
+        return applyValueOverrides(client, i);
       });
 
     var thisManual = (DATA[month] && DATA[month].clients || []).filter(function(c){return c.isManual;});
@@ -515,6 +587,58 @@ function computeDiff(monthIdx) {
   return {added:added, removed:removed, statusChanged:statusChanged};
 }
 var STATUS_LABELS = {normal:'Ativo', pausado:'Pausado', cancelando:'Cancelando'};
+
+function toggleExpand(tr, event) {
+  // Only toggle in mobile (handled visually by CSS); harmless in desktop
+  if (window.innerWidth > 700) return;
+  tr.classList.toggle('expanded');
+}
+
+function startEditComm(td, clientName, currentValue) {
+  if (td.querySelector('input')) return; // already editing
+  var prevHtml = td.innerHTML;
+  var label = td.getAttribute('data-label');
+  td.innerHTML = '<input type="number" step="0.01" min="0" value="' + currentValue + '" '
+    + 'onblur="commitEditComm(this,\'' + clientName.replace(/'/g,"\\'") + '\')" '
+    + 'onkeydown="if(event.key===\'Enter\')this.blur();if(event.key===\'Escape\')this.dataset.cancel=1+(this.blur()||0)" '
+    + 'style="width:100%;background:var(--surface2);border:1px solid var(--accent);color:var(--text);padding:4px 6px;border-radius:4px;font-size:13px;font-family:inherit;text-align:right;outline:none" />';
+  if (label) td.setAttribute('data-label', label);
+  var input = td.querySelector('input');
+  input.dataset.prevHtml = prevHtml;
+  setTimeout(function(){ input.focus(); input.select(); }, 0);
+}
+
+function commitEditComm(input, clientName) {
+  if (input.dataset.cancel) {
+    input.parentElement.innerHTML = input.dataset.prevHtml;
+    return;
+  }
+  var newVal = parseFloat(input.value);
+  if (isNaN(newVal) || newVal < 0) {
+    input.parentElement.innerHTML = input.dataset.prevHtml;
+    return;
+  }
+  changeValue(clientName, 'valorComissao', +newVal.toFixed(2));
+}
+
+function changeValue(clientName, field, newValue) {
+  var month = MONTHS[currentIdx];
+  if (!valueOverrides[month]) valueOverrides[month] = {};
+  if (!valueOverrides[month][clientName]) valueOverrides[month][clientName] = {};
+  valueOverrides[month][clientName][field] = newValue;
+
+  // Clear stale future overrides for same client+field
+  for (var i = currentIdx + 1; i < MONTHS.length; i++) {
+    var m = MONTHS[i];
+    if (valueOverrides[m] && valueOverrides[m][clientName] && valueOverrides[m][clientName][field] !== undefined) {
+      delete valueOverrides[m][clientName][field];
+      if (Object.keys(valueOverrides[m][clientName]).length === 0) delete valueOverrides[m][clientName];
+      if (Object.keys(valueOverrides[m]).length === 0) delete valueOverrides[m];
+    }
+  }
+  saveState();
+  render();
+}
 
 function changeStatus(clientName, newStatus, selectEl) {
   var month = MONTHS[currentIdx];
@@ -721,13 +845,13 @@ function render() {
     var nameSafe = c.name.replace(/'/g, "\\'");
     var deleteBtn = c.isManual ? '<button onclick="removeClient(\'' + nameSafe + '\')" title="Apagar cliente" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;margin-left:8px;opacity:0.5" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5">✕</button>' : '';
     var novoBadge = c.isManual ? '<span class="badge-novo">novo</span>' : '';
-    tableRows += '<tr class="' + rowClass + '">'
+    tableRows += '<tr class="' + rowClass + '" onclick="toggleExpand(this,event)">'
       + '<td class="name-cell">' + c.name + novoBadge + deleteBtn + '</td>'
       + '<td class="right" data-label="Mensalidade">' + fmt(c.valorMensal) + '</td>'
       + '<td class="right" data-label="Maturidade"><span class="tier ' + tierClass(c.mesesAtivos) + '">' + c.mesesAtivos + 'm' + (c.mesesAtivos >= 12 ? ' ⭐' : '') + '</span></td>'
       + '<td class="right" data-label="% Comissão">' + pct(c.pctComissao) + '</td>'
-      + '<td class="right' + (c.valorComissao===0?' comm-zero':'') + '" data-label="Comissão">' + (c.valorComissao===0?'—':fmt(c.valorComissao)) + '</td>'
-      + '<td>' + statusSelectHtml(c.name, c.status) + '</td>'
+      + '<td class="right comm-cell' + (c.valorComissao===0?' comm-zero':'') + '" data-label="Comissão" onclick="event.stopPropagation();startEditComm(this, \'' + nameSafe + '\', ' + c.valorComissao + ')" title="Clique para editar">' + (c.valorComissao===0?'—':fmt(c.valorComissao)) + '</td>'
+      + '<td onclick="event.stopPropagation()">' + statusSelectHtml(c.name, c.status) + '</td>'
       + '</tr>';
   });
 
