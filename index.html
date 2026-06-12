@@ -121,46 +121,131 @@
     /* Accordion-style card view */
     .table-wrap table thead { display: none; }
     .table-wrap table, .table-wrap tbody, .table-wrap tr, .table-wrap td { display: block; width: 100%; }
-    .table-wrap tr { padding: 14px 16px; border-bottom: 1px solid rgba(51,65,85,0.5); position: relative; cursor: pointer; }
+    .table-wrap tr {
+      padding: 14px 38px 14px 16px;
+      border-bottom: 1px solid rgba(51,65,85,0.5);
+      position: relative;
+      cursor: pointer;
+    }
     .table-wrap tr:last-child { border-bottom: none; }
-    .table-wrap td { padding: 3px 0; border: none; font-size: 13px; text-align: left !important; display: flex; justify-content: space-between; align-items: center; }
+    .table-wrap td {
+      padding: 0;
+      border: none;
+      font-size: 13px;
+      text-align: left !important;
+      display: block;
+      width: 100%;
+    }
 
-    /* Collapsed state: only name + commission visible */
+    /* Chevron pinned right of TR */
+    .table-wrap tr::after {
+      content: '▾';
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      color: var(--text-muted);
+      transition: transform 0.2s;
+      pointer-events: none;
+    }
+    .table-wrap tr.expanded::after {
+      transform: translateY(-50%) rotate(180deg);
+    }
+
+    /* Name row */
     .table-wrap td.name-cell {
-      font-size: 15px; font-weight: 600;
-      padding-right: 24px; /* room for chevron */
-      margin-bottom: 0;
-      display: flex; justify-content: space-between; align-items: center;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
     }
-    .table-wrap td.name-cell::after {
-      content: '▾'; position: absolute; right: 16px; top: 18px;
-      font-size: 13px; color: var(--text-muted); transition: transform 0.2s;
-    }
-    .table-wrap tr.expanded td.name-cell::after { transform: rotate(180deg); }
 
-    /* Hide detail cells when collapsed; commission stays visible as line under name */
+    /* Commission row (always visible) */
+    .table-wrap td.comm-cell {
+      margin-top: 6px;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--green);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .table-wrap td.comm-cell::before {
+      content: 'Comissão';
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Hide detail cells when collapsed */
     .table-wrap td[data-label="Mensalidade"],
     .table-wrap td[data-label="Maturidade"],
-    .table-wrap td[data-label="% Comissão"] { display: none; padding-left: 2px; }
+    .table-wrap td[data-label="% Comissão"],
+    .table-wrap tr td:last-child {
+      display: none;
+    }
+
+    /* Expanded state: show details */
     .table-wrap tr.expanded td[data-label="Mensalidade"],
     .table-wrap tr.expanded td[data-label="Maturidade"],
-    .table-wrap tr.expanded td[data-label="% Comissão"] { display: flex; padding-top: 8px; }
-    .table-wrap td::before { content: attr(data-label); color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-
-    /* Commission stays visible (collapsed) — shown as a sub-line under name */
-    .table-wrap td.comm-cell {
+    .table-wrap tr.expanded td[data-label="% Comissão"] {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(51,65,85,0.4);
+    }
+    .table-wrap tr.expanded td[data-label="Maturidade"],
+    .table-wrap tr.expanded td[data-label="% Comissão"] {
+      border-top: none;
+      padding-top: 4px;
       margin-top: 4px;
-      font-size: 15px; font-weight: 700; color: var(--green);
     }
-    .table-wrap td.comm-cell::before { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+    .table-wrap tr.expanded td[data-label]::before {
+      content: attr(data-label);
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
 
-    /* Status cell pinned at top right */
-    .table-wrap td:last-child {
-      position: absolute; top: 14px; right: 44px;
-      padding: 0; max-width: 110px;
+    /* Status cell in expanded state */
+    .table-wrap tr.expanded td:last-child {
+      display: block;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(51,65,85,0.4);
     }
-    .table-wrap td:last-child::before { display: none; }
-    tr.pausado, tr.cancelando, tr.novo { border-left-width: 3px; border-left-style: solid; padding-left: 14px; }
+    .table-wrap tr.expanded td:last-child::before {
+      content: 'Status';
+      display: block;
+      color: var(--text-muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    tr.pausado, tr.cancelando, tr.novo {
+      border-left-width: 3px;
+      border-left-style: solid;
+      padding-left: 14px;
+    }
+
+    /* Hover hint on collapsed comm value */
+    .table-wrap td.comm-cell::after {
+      content: '';
+      display: none;
+    }
 
     .status-select { width: auto; min-width: 90px; }
     .tier { padding: 2px 6px; }
