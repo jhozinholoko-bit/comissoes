@@ -74,10 +74,10 @@
   .extra-val { font-weight: 700; color: var(--purple); }
   .extra-val.unknown { color: var(--text-muted); font-style: italic; }
   .comm-zero { color: var(--text-muted); }
-  .comm-cell { cursor: pointer; transition: background 0.12s; border-radius: 4px; position: relative; }
-  .comm-cell:hover { background: rgba(129,140,248,0.1); color: var(--accent); }
-  .comm-cell::after { content: '✎'; position: absolute; right: -2px; top: 50%; transform: translateY(-50%); font-size: 10px; opacity: 0; color: var(--accent); transition: opacity 0.12s; }
-  .comm-cell:hover::after { opacity: 0.6; }
+  .mensal-cell { cursor: pointer; transition: background 0.12s; border-radius: 4px; position: relative; }
+  .mensal-cell:hover { background: rgba(129,140,248,0.1); color: var(--accent); }
+  .mensal-cell::after { content: '✎'; position: absolute; right: -2px; top: 50%; transform: translateY(-50%); font-size: 10px; opacity: 0; color: var(--accent); transition: opacity 0.12s; }
+  .mensal-cell:hover::after { opacity: 0.6; }
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
   .modal { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px 32px; width: 420px; max-width: 95vw; }
@@ -511,14 +511,21 @@ function getValueOverride(name, field, monthIdx) {
 
 // Apply value overrides to a client at given monthIdx
 function applyValueOverrides(client, monthIdx) {
-  var ovComm = getValueOverride(client.name, 'valorComissao', monthIdx);
-  if (ovComm !== undefined) client.valorComissao = ovComm;
   var ovMensal = getValueOverride(client.name, 'valorMensal', monthIdx);
   if (ovMensal !== undefined) client.valorMensal = ovMensal;
   var ovMat = getValueOverride(client.name, 'mesesAtivos', monthIdx);
   if (ovMat !== undefined) client.mesesAtivos = ovMat;
   var ovPct = getValueOverride(client.name, 'pctComissao', monthIdx);
   if (ovPct !== undefined) client.pctComissao = ovPct;
+
+  // Commission auto-recalculates from (possibly overridden) mensalidade × pct
+  // Explicit valorComissao override takes precedence (rare edge case)
+  var ovComm = getValueOverride(client.name, 'valorComissao', monthIdx);
+  if (ovComm !== undefined) {
+    client.valorComissao = ovComm;
+  } else {
+    client.valorComissao = +(client.valorMensal * client.pctComissao).toFixed(2);
+  }
   return client;
 }
 
@@ -679,21 +686,21 @@ function toggleExpand(tr, event) {
   tr.classList.toggle('expanded');
 }
 
-function startEditComm(td, clientName, currentValue) {
-  if (td.querySelector('input')) return; // already editing
+function startEditValue(td, clientName, field, currentValue, event) {
+  if (event) event.stopPropagation();
+  if (td.querySelector('input')) return;
   var prevHtml = td.innerHTML;
-  var label = td.getAttribute('data-label');
   td.innerHTML = '<input type="number" step="0.01" min="0" value="' + currentValue + '" '
-    + 'onblur="commitEditComm(this,\'' + clientName.replace(/'/g,"\\'") + '\')" '
-    + 'onkeydown="if(event.key===\'Enter\')this.blur();if(event.key===\'Escape\')this.dataset.cancel=1+(this.blur()||0)" '
-    + 'style="width:100%;background:var(--surface2);border:1px solid var(--accent);color:var(--text);padding:4px 6px;border-radius:4px;font-size:13px;font-family:inherit;text-align:right;outline:none" />';
-  if (label) td.setAttribute('data-label', label);
+    + 'onblur="commitEditValue(this,\'' + clientName.replace(/'/g,"\\'") + '\',\'' + field + '\')" '
+    + 'onclick="event.stopPropagation()" '
+    + 'onkeydown="if(event.key===\'Enter\')this.blur();if(event.key===\'Escape\'){this.dataset.cancel=1;this.blur();}" '
+    + 'style="width:100%;background:var(--surface2);border:1px solid var(--accent);color:var(--text);padding:4px 8px;border-radius:6px;font-size:13px;font-weight:600;font-family:inherit;text-align:right;outline:none" />';
   var input = td.querySelector('input');
   input.dataset.prevHtml = prevHtml;
   setTimeout(function(){ input.focus(); input.select(); }, 0);
 }
 
-function commitEditComm(input, clientName) {
+function commitEditValue(input, clientName, field) {
   if (input.dataset.cancel) {
     input.parentElement.innerHTML = input.dataset.prevHtml;
     return;
@@ -703,7 +710,7 @@ function commitEditComm(input, clientName) {
     input.parentElement.innerHTML = input.dataset.prevHtml;
     return;
   }
-  changeValue(clientName, 'valorComissao', +newVal.toFixed(2));
+  changeValue(clientName, field, +newVal.toFixed(2));
 }
 
 function changeValue(clientName, field, newValue) {
@@ -932,10 +939,10 @@ function render() {
     var novoBadge = c.isManual ? '<span class="badge-novo">novo</span>' : '';
     tableRows += '<tr class="' + rowClass + '" onclick="toggleExpand(this,event)">'
       + '<td class="name-cell">' + c.name + novoBadge + deleteBtn + '</td>'
-      + '<td class="right" data-label="Mensalidade">' + fmt(c.valorMensal) + '</td>'
+      + '<td class="right mensal-cell" data-label="Mensalidade" onclick="startEditValue(this,\'' + nameSafe + '\',\'valorMensal\',' + c.valorMensal + ',event)" title="Clique para editar">' + fmt(c.valorMensal) + '</td>'
       + '<td class="right" data-label="Maturidade"><span class="tier ' + tierClass(c.mesesAtivos) + '">' + c.mesesAtivos + 'm' + (c.mesesAtivos >= 12 ? ' ⭐' : '') + '</span></td>'
       + '<td class="right" data-label="% Comissão">' + pct(c.pctComissao) + '</td>'
-      + '<td class="right comm-cell' + (c.valorComissao===0?' comm-zero':'') + '" data-label="Comissão" onclick="event.stopPropagation();startEditComm(this, \'' + nameSafe + '\', ' + c.valorComissao + ')" title="Clique para editar">' + (c.valorComissao===0?'—':fmt(c.valorComissao)) + '</td>'
+      + '<td class="right comm-cell' + (c.valorComissao===0?' comm-zero':'') + '" data-label="Comissão">' + (c.valorComissao===0?'—':fmt(c.valorComissao)) + '</td>'
       + '<td onclick="event.stopPropagation()">' + statusSelectHtml(c.name, c.status) + '</td>'
       + '</tr>';
   });
