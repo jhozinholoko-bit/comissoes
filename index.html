@@ -943,6 +943,17 @@ function renderNav() {
   nav.innerHTML = html;
   document.getElementById('prevBtn').disabled = currentIdx === 0;
   document.getElementById('nextBtn').disabled = currentIdx === MONTHS.length - 1;
+
+  // Auto-scroll to active month (especially useful on mobile horizontal scroll)
+  setTimeout(function() {
+    var activeBtn = nav.querySelector('.month-btn.active');
+    if (activeBtn && nav.scrollWidth > nav.clientWidth) {
+      var btnLeft = activeBtn.offsetLeft;
+      var btnWidth = activeBtn.offsetWidth;
+      var navWidth = nav.clientWidth;
+      nav.scrollLeft = btnLeft - (navWidth / 2) + (btnWidth / 2);
+    }
+  }, 0);
 }
 
 function navigate(dir) {
