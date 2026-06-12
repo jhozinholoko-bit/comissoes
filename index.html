@@ -7,10 +7,10 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
-    --bg: #08102a;
-    --bg-2: #0a1538;
-    --surface: #11214d;
-    --surface2: #182a5e;
+    --bg: #060912;
+    --bg-2: #0a0f1e;
+    --surface: #0f1424;
+    --surface2: #151b2f;
     --border: rgba(99,140,235,0.15);
     --border-strong: rgba(99,140,235,0.3);
     --text: #f0f6ff;
@@ -35,20 +35,18 @@
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
     background:
-      radial-gradient(ellipse 1200px 600px at 50% -200px, rgba(79,158,255,0.18), transparent),
-      radial-gradient(ellipse 800px 400px at 90% 30%, rgba(34,211,238,0.08), transparent),
-      radial-gradient(ellipse 700px 350px at 0% 100%, rgba(236,72,153,0.07), transparent),
+      radial-gradient(ellipse 1000px 500px at 50% -300px, rgba(79,158,255,0.08), transparent),
+      radial-gradient(ellipse 600px 300px at 90% 20%, rgba(34,211,238,0.03), transparent),
       linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
     background-attachment: fixed;
   }
   .header {
-    background: linear-gradient(180deg, rgba(8,16,42,0.95), rgba(17,33,77,0.7));
-    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    background: rgba(10,15,30,0.85);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
     padding: 20px 40px;
     display: flex; align-items: center; justify-content: space-between;
     position: sticky; top: 0; z-index: 50;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
   }
   .header h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
   .header h1 span { background: linear-gradient(135deg, var(--accent), var(--cyan)); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 900; }
@@ -63,7 +61,7 @@
   @media (min-width: 1900px) { .main { max-width: 1700px; } }
   .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 36px; }
   .card {
-    background: linear-gradient(180deg, var(--surface), rgba(17,33,77,0.6));
+    background: linear-gradient(180deg, var(--surface), rgba(15,20,36,0.6));
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 22px 26px;
@@ -75,7 +73,7 @@
   .card::before {
     content: '';
     position: absolute; top: 0; left: 0; right: 0; height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(79,158,255,0.4), transparent);
+    background: linear-gradient(90deg, transparent, rgba(79,158,255,0.3), transparent);
   }
   .card:hover { border-color: var(--border-strong); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 
