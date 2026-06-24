@@ -377,6 +377,7 @@
   <div style="display:flex;align-items:center;gap:12px">
     <div class="month-nav" id="monthNav"></div>
     <span id="syncStatus" style="font-size:11px;color:var(--text-muted);transition:opacity 0.3s">⟳ Carregando...</span>
+    <button id="heartbeatBtn" class="btn btn-ghost" style="font-size:11px;padding:4px 10px;opacity:0.6;display:flex;align-items:center;gap:5px" title="Marcar presença no banco (evita pausa por inatividade)" onclick="markHeartbeat()">💚 <span id="heartbeatLabel">Check-in</span></button>
     <button class="btn btn-ghost" style="font-size:11px;padding:4px 10px;opacity:0.5" onclick="if(confirm('Limpar TODOS os dados (Supabase + local)?')){sb.from('comissoes_state').delete().neq('id','xxxxxxx').then(function(){localStorage.removeItem('comm_overrides');localStorage.removeItem('comm_manual');localStorage.removeItem('comm_extras');localStorage.removeItem('comm_valueOverrides');location.reload();});}">↺ Reset</button>
   </div>
 </div>
@@ -561,6 +562,42 @@ function _loadFromLocalStorage() {
       MONTHS.forEach(function(m) { if (ex[m] && DATA[m]) DATA[m].extras = ex[m]; });
     }
   } catch(e) {}
+}
+
+function markHeartbeat() {
+  var btn = document.getElementById('heartbeatBtn');
+  var label = document.getElementById('heartbeatLabel');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.style.opacity = '1';
+  var prevText = label.textContent;
+  label.textContent = 'Enviando...';
+  sb.from('comissoes_state').upsert({
+    id: 'heartbeat',
+    data: { last_ping: new Date().toISOString() },
+    updated_at: new Date().toISOString()
+  }).then(function(res) {
+    if (res.error) {
+      label.textContent = 'Erro';
+      btn.style.color = 'var(--red)';
+      setTimeout(function() {
+        label.textContent = prevText;
+        btn.style.color = '';
+        btn.disabled = false;
+        btn.style.opacity = '0.6';
+      }, 2500);
+    } else {
+      label.textContent = '✓ Registrado';
+      btn.style.color = 'var(--green)';
+      try { localStorage.setItem('comm_lastHeartbeat', new Date().toISOString()); } catch(e) {}
+      setTimeout(function() {
+        label.textContent = 'Check-in';
+        btn.style.color = '';
+        btn.disabled = false;
+        btn.style.opacity = '0.6';
+      }, 2500);
+    }
+  });
 }
 
 function showSync(state) {
