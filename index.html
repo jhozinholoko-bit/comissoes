@@ -656,21 +656,14 @@ function getValueOverride(name, field, monthIdx) {
 
 // Apply value overrides to a client at given monthIdx
 function applyValueOverrides(client, monthIdx) {
+  // Only valorMensal override is honored — pctComissao always comes from mesesAtivos via commRate
+  // Comissão always recalculates: mensalidade × % (no manual commission overrides)
   var ovMensal = getValueOverride(client.name, 'valorMensal', monthIdx);
   if (ovMensal !== undefined) client.valorMensal = ovMensal;
-  var ovMat = getValueOverride(client.name, 'mesesAtivos', monthIdx);
-  if (ovMat !== undefined) client.mesesAtivos = ovMat;
-  var ovPct = getValueOverride(client.name, 'pctComissao', monthIdx);
-  if (ovPct !== undefined) client.pctComissao = ovPct;
 
-  // Commission auto-recalculates from (possibly overridden) mensalidade × pct
-  // Explicit valorComissao override takes precedence (rare edge case)
-  var ovComm = getValueOverride(client.name, 'valorComissao', monthIdx);
-  if (ovComm !== undefined) {
-    client.valorComissao = ovComm;
-  } else {
-    client.valorComissao = +(client.valorMensal * client.pctComissao).toFixed(2);
-  }
+  // Always recompute pctComissao based on current mesesAtivos (so new tier table applies)
+  client.pctComissao = commRate(client.mesesAtivos);
+  client.valorComissao = +(client.valorMensal * client.pctComissao).toFixed(2);
   return client;
 }
 
