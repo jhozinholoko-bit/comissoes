@@ -145,6 +145,8 @@
   .tier-3 { background: rgba(138,161,201,0.15); color: var(--text-muted); border: 1px solid rgba(138,161,201,0.2); }
   .tier-5 { background: rgba(79,158,255,0.15); color: var(--accent); border: 1px solid rgba(79,158,255,0.3); }
   .tier-8 { background: rgba(16,217,119,0.15); color: var(--green); border: 1px solid rgba(16,217,119,0.3); }
+  .tier-10 { background: linear-gradient(135deg, rgba(34,211,238,0.2), rgba(16,217,119,0.15)); color: var(--cyan); border: 1px solid rgba(34,211,238,0.4); }
+  .tier-12 { background: linear-gradient(135deg, rgba(236,72,153,0.25), rgba(192,132,252,0.2)); color: var(--magenta); border: 1px solid rgba(236,72,153,0.45); box-shadow: 0 0 10px rgba(236,72,153,0.2); }
   .status-select { border: none; outline: none; cursor: pointer; font-size: 11px; font-weight: 700; font-family: inherit; appearance: none; padding: 5px 14px; border-radius: 20px; text-align: center; display: inline-block; width: auto; min-width: 95px; letter-spacing: 0.02em; transition: filter 0.15s; }
   .status-select:hover { filter: brightness(1.15); }
   .status-select.s-normal { background: linear-gradient(135deg, rgba(16,217,119,0.18), rgba(20,232,138,0.1)); color: var(--green); border: 1px solid rgba(16,217,119,0.3); }
@@ -438,8 +440,20 @@ function fmt(v) {
   return 'R$ ' + Number(v).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 function pct(v) { return (v*100).toFixed(0)+'%'; }
-function tierClass(m) { return m >= 8 ? 'tier-8' : m >= 4 ? 'tier-5' : 'tier-3'; }
-function commRate(m) { return m >= 8 ? 0.08 : m >= 4 ? 0.05 : 0.03; }
+function tierClass(m) {
+  if (m >= 16) return 'tier-12';
+  if (m >= 12) return 'tier-10';
+  if (m >= 8)  return 'tier-8';
+  if (m >= 4)  return 'tier-5';
+  return 'tier-3';
+}
+function commRate(m) {
+  if (m >= 16) return 0.12;
+  if (m >= 12) return 0.10;
+  if (m >= 8)  return 0.08;
+  if (m >= 4)  return 0.05;
+  return 0.03;
+}
 
 function saveState() {
   // Debounce — batches multiple rapid changes (e.g. quick sequential clicks)
