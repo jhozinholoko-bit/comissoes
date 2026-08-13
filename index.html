@@ -801,7 +801,11 @@ function buildTimeline() {
 
     var thisManual = (DATA[month] && DATA[month].clients || []).filter(function(c){return c.isManual;});
     thisManual.forEach(function(mc) {
-      if (!carried.find(function(c){return c.name===mc.name;})) carried.push(mc);
+      if (carried.find(function(c){return c.name===mc.name;})) return;
+      // Copy before overriding — mc points into DATA and must not be mutated,
+      // or the edited value would leak into every month's base data.
+      var client = {name:mc.name, valorMensal:mc.valorMensal, dataInicio:mc.dataInicio, mesesAtivos:mc.mesesAtivos, pctComissao:mc.pctComissao, valorComissao:mc.valorComissao, status:ovr[mc.name] || mc.status, isManual:true};
+      carried.push(applyValueOverrides(client, i));
     });
 
     // Inherit unresolved pending extras from previous month
