@@ -453,7 +453,13 @@ var DATA = JSON.parse('{"JAN":{"clients":[{"name":"Acentra","valorMensal":3897,"
 var MONTHS = ["JAN","FEV","MAR","ABR","MAI","JUN","JUL","AGO","SET","OUT","NOV","DEZ"];
 var MONTH_LABELS = {JAN:'Janeiro',FEV:'Fevereiro',MAR:'Março',ABR:'Abril',MAI:'Maio',JUN:'Junho',JUL:'Julho',AGO:'Agosto',SET:'Setembro',OUT:'Outubro',NOV:'Novembro',DEZ:'Dezembro'};
 var SPREADSHEET_MONTHS = 7;
-var currentIdx = 6;
+// Open on the current month (clamped to 2026); falls back to JUL outside that year
+var currentIdx = (function() {
+  var now = new Date();
+  if (now.getFullYear() < 2026) return 0;
+  if (now.getFullYear() > 2026) return 11;
+  return now.getMonth();
+})();
 var overrides = {};
 // valueOverrides: edits to client values (commission, monthly value, etc.) that propagate forward
 // Structure: { 'AGO': { 'Braptec': { valorComissao: 100, valorMensal: 1500 } } }
@@ -861,6 +867,9 @@ var STATUS_LABELS = {normal:'Ativo', pausado:'Pausado', cancelando:'Cancelando'}
 function toggleExpand(tr, event) {
   // Only toggle in mobile (handled visually by CSS); harmless in desktop
   if (window.innerWidth > 700) return;
+  // Never collapse while a value is being edited — the cell would be hidden
+  // mid-edit and the pending blur would commit against a detached element.
+  if (tr.querySelector('input')) return;
   tr.classList.toggle('expanded');
 }
 
@@ -879,19 +888,25 @@ function startEditValue(td, clientName, field, currentValue, event) {
 }
 
 function commitEditValue(input, clientName, field) {
-  if (input.dataset.cancel) {
-    input.parentElement.innerHTML = input.dataset.prevHtml;
-    return;
+  // The cell may already have been replaced by a re-render; restoring then is a no-op.
+  function restore() {
+    if (input.parentElement) input.parentElement.innerHTML = input.dataset.prevHtml;
   }
+  if (input.dataset.cancel) { restore(); return; }
   var newVal = parseFloat(input.value);
-  if (isNaN(newVal) || newVal < 0) {
-    input.parentElement.innerHTML = input.dataset.prevHtml;
-    return;
-  }
+  if (isNaN(newVal) || newVal < 0) { restore(); return; }
   changeValue(clientName, field, +newVal.toFixed(2));
 }
 
 function changeValue(clientName, field, newValue) {
+  // Edits only take effect from the base month onward — earlier months are
+  // historical records rebuilt straight from the spreadsheet, so an override
+  // there would be silently dropped on the next render.
+  if (currentIdx < BASE_MONTH_IDX) {
+    alert('Meses anteriores a ' + MONTH_LABELS[MONTHS[BASE_MONTH_IDX]] + ' são histórico e não podem ser editados.');
+    render();
+    return;
+  }
   var month = MONTHS[currentIdx];
   if (!valueOverrides[month]) valueOverrides[month] = {};
   if (!valueOverrides[month][clientName]) valueOverrides[month][clientName] = {};
@@ -1159,6 +1174,7 @@ function render() {
   // Table rows (alphabetical)
   var allClients = t.clients.slice().sort(function(a,b){return a.name.localeCompare(b.name,'pt-BR');});
   var tableRows = '';
+  var editable = currentIdx >= BASE_MONTH_IDX;
   allClients.forEach(function(c) {
     var rowClass = c.status + (c.isManual ? ' novo' : '');
     var nameSafe = c.name.replace(/'/g, "\\'");
@@ -1166,7 +1182,9 @@ function render() {
     var novoBadge = c.isManual ? '<span class="badge-novo">novo</span>' : '';
     tableRows += '<tr class="' + rowClass + '" onclick="toggleExpand(this,event)">'
       + '<td class="name-cell">' + c.name + novoBadge + deleteBtn + '</td>'
-      + '<td class="right mensal-cell" data-label="Mensalidade" onclick="startEditValue(this,\'' + nameSafe + '\',\'valorMensal\',' + c.valorMensal + ',event)" title="Clique para editar">' + fmt(c.valorMensal) + '</td>'
+      + '<td class="right' + (editable ? ' mensal-cell' : '') + '" data-label="Mensalidade"'
+        + (editable ? ' onclick="startEditValue(this,\'' + nameSafe + '\',\'valorMensal\',' + c.valorMensal + ',event)" title="Clique para editar"' : '')
+        + '>' + fmt(c.valorMensal) + '</td>'
       + '<td class="right" data-label="Maturidade"><span class="tier ' + tierClass(c.mesesAtivos) + '">' + c.mesesAtivos + 'm' + (c.mesesAtivos >= 12 ? ' ⭐' : '') + '</span></td>'
       + '<td class="right" data-label="% Comissão">' + pct(c.pctComissao) + '</td>'
       + '<td class="right comm-cell' + (c.valorComissao===0?' comm-zero':'') + '" data-label="Comissão">' + (c.valorComissao===0?'—':fmt(c.valorComissao)) + '</td>'
