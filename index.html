@@ -691,15 +691,25 @@ function getValueOverride(name, field, monthIdx) {
 }
 
 // Apply value overrides to a client at given monthIdx
+// Every numeric column is editable. Each falls back to its computed value when
+// no override exists, so untouched clients behave exactly as before.
 function applyValueOverrides(client, monthIdx) {
-  // Only valorMensal override is honored — pctComissao always comes from mesesAtivos via commRate
-  // Comissão always recalculates: mensalidade × % (no manual commission overrides)
   var ovMensal = getValueOverride(client.name, 'valorMensal', monthIdx);
   if (ovMensal !== undefined) client.valorMensal = ovMensal;
 
-  // Always recompute pctComissao based on current mesesAtivos (so new tier table applies)
-  client.pctComissao = commRate(client.mesesAtivos);
-  client.valorComissao = +(client.valorMensal * client.pctComissao).toFixed(2);
+  // Maturity drives the commission tier, so an override here changes % too.
+  var ovMeses = getValueOverride(client.name, 'mesesAtivos', monthIdx);
+  if (ovMeses !== undefined) client.mesesAtivos = ovMeses;
+
+  // % defaults to the tier table; an explicit override pins it.
+  var ovPct = getValueOverride(client.name, 'pctComissao', monthIdx);
+  client.pctComissao = (ovPct !== undefined) ? ovPct : commRate(client.mesesAtivos);
+
+  // Commission defaults to mensalidade × %; an explicit override pins it.
+  var ovComissao = getValueOverride(client.name, 'valorComissao', monthIdx);
+  client.valorComissao = (ovComissao !== undefined)
+    ? ovComissao
+    : +(client.valorMensal * client.pctComissao).toFixed(2);
   return client;
 }
 
@@ -877,11 +887,22 @@ function toggleExpand(tr, event) {
   tr.classList.toggle('expanded');
 }
 
+// Per-field input rules. pctComissao is typed as a percentage (10 = 10%) and
+// converted on commit; mesesAtivos is a whole number of months.
+var FIELD_INPUT = {
+  valorMensal:   {step:'0.01', min:'0'},
+  valorComissao: {step:'0.01', min:'0'},
+  mesesAtivos:   {step:'1',    min:'0'},
+  pctComissao:   {step:'0.1',  min:'0', max:'100'}
+};
+
 function startEditValue(td, clientName, field, currentValue, event) {
   if (event) event.stopPropagation();
   if (td.querySelector('input')) return;
+  var rules = FIELD_INPUT[field] || {step:'0.01', min:'0'};
   var prevHtml = td.innerHTML;
-  td.innerHTML = '<input type="number" step="0.01" min="0" value="' + currentValue + '" '
+  td.innerHTML = '<input type="number" step="' + rules.step + '" min="' + rules.min + '"'
+    + (rules.max ? ' max="' + rules.max + '"' : '') + ' value="' + currentValue + '" '
     + 'onblur="commitEditValue(this,\'' + clientName.replace(/'/g,"\\'") + '\',\'' + field + '\')" '
     + 'onclick="event.stopPropagation()" '
     + 'onkeydown="if(event.key===\'Enter\')this.blur();if(event.key===\'Escape\'){this.dataset.cancel=1;this.blur();}" '
@@ -899,7 +920,16 @@ function commitEditValue(input, clientName, field) {
   if (input.dataset.cancel) { restore(); return; }
   var newVal = parseFloat(input.value);
   if (isNaN(newVal) || newVal < 0) { restore(); return; }
-  changeValue(clientName, field, +newVal.toFixed(2));
+  if (field === 'pctComissao') {
+    // Typed as a percentage, stored as a fraction.
+    if (newVal > 100) { restore(); return; }
+    newVal = +(newVal / 100).toFixed(4);
+  } else if (field === 'mesesAtivos') {
+    newVal = Math.round(newVal);
+  } else {
+    newVal = +newVal.toFixed(2);
+  }
+  changeValue(clientName, field, newVal);
 }
 
 function changeValue(clientName, field, newValue) {
@@ -916,14 +946,28 @@ function changeValue(clientName, field, newValue) {
   if (!valueOverrides[month][clientName]) valueOverrides[month][clientName] = {};
   valueOverrides[month][clientName][field] = newValue;
 
-  // Clear stale future overrides for same client+field
+  // Editing an input of the commission drops a previously pinned commission,
+  // otherwise the pinned value would silently win and the edit would look lost.
+  var fields = [field];
+  if (field === 'valorMensal' || field === 'pctComissao' || field === 'mesesAtivos') {
+    delete valueOverrides[month][clientName].valorComissao;
+    fields.push('valorComissao');
+  }
+  // Maturity drives the tier, so re-deriving % means dropping any pinned %.
+  if (field === 'mesesAtivos') {
+    delete valueOverrides[month][clientName].pctComissao;
+    fields.push('pctComissao');
+  }
+
+  // Clear stale future overrides for every field this edit invalidates
   for (var i = currentIdx + 1; i < MONTHS.length; i++) {
     var m = MONTHS[i];
-    if (valueOverrides[m] && valueOverrides[m][clientName] && valueOverrides[m][clientName][field] !== undefined) {
-      delete valueOverrides[m][clientName][field];
-      if (Object.keys(valueOverrides[m][clientName]).length === 0) delete valueOverrides[m][clientName];
-      if (Object.keys(valueOverrides[m]).length === 0) delete valueOverrides[m];
-    }
+    if (!valueOverrides[m] || !valueOverrides[m][clientName]) continue;
+    fields.forEach(function(f) {
+      if (valueOverrides[m][clientName][f] !== undefined) delete valueOverrides[m][clientName][f];
+    });
+    if (Object.keys(valueOverrides[m][clientName]).length === 0) delete valueOverrides[m][clientName];
+    if (Object.keys(valueOverrides[m]).length === 0) delete valueOverrides[m];
   }
   saveState();
   render();
@@ -1189,9 +1233,15 @@ function render() {
       + '<td class="right' + (editable ? ' mensal-cell' : '') + '" data-label="Mensalidade"'
         + (editable ? ' onclick="startEditValue(this,\'' + nameSafe + '\',\'valorMensal\',' + c.valorMensal + ',event)" title="Clique para editar"' : '')
         + '>' + fmt(c.valorMensal) + '</td>'
-      + '<td class="right" data-label="Maturidade"><span class="tier ' + tierClass(c.mesesAtivos) + '">' + c.mesesAtivos + 'm' + (c.mesesAtivos >= 12 ? ' ⭐' : '') + '</span></td>'
-      + '<td class="right" data-label="% Comissão">' + pct(c.pctComissao) + '</td>'
-      + '<td class="right comm-cell' + (c.valorComissao===0?' comm-zero':'') + '" data-label="Comissão">' + (c.valorComissao===0?'—':fmt(c.valorComissao)) + '</td>'
+      + '<td class="right' + (editable ? ' mensal-cell' : '') + '" data-label="Maturidade"'
+        + (editable ? ' onclick="startEditValue(this,\'' + nameSafe + '\',\'mesesAtivos\',' + c.mesesAtivos + ',event)" title="Clique para editar"' : '')
+        + '><span class="tier ' + tierClass(c.mesesAtivos) + '">' + c.mesesAtivos + 'm' + (c.mesesAtivos >= 12 ? ' ⭐' : '') + '</span></td>'
+      + '<td class="right' + (editable ? ' mensal-cell' : '') + '" data-label="% Comissão"'
+        + (editable ? ' onclick="startEditValue(this,\'' + nameSafe + '\',\'pctComissao\',' + (c.pctComissao*100).toFixed(1) + ',event)" title="Clique para editar"' : '')
+        + '>' + pct(c.pctComissao) + '</td>'
+      + '<td class="right comm-cell' + (c.valorComissao===0?' comm-zero':'') + (editable ? ' mensal-cell' : '') + '" data-label="Comissão"'
+        + (editable ? ' onclick="startEditValue(this,\'' + nameSafe + '\',\'valorComissao\',' + c.valorComissao + ',event)" title="Clique para editar"' : '')
+        + '>' + (c.valorComissao===0?'—':fmt(c.valorComissao)) + '</td>'
       + '<td onclick="event.stopPropagation()">' + statusSelectHtml(c.name, c.status) + '</td>'
       + '</tr>';
   });
