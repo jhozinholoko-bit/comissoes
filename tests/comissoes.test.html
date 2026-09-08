@@ -114,7 +114,6 @@ buildTimeline();
 var faixaRuim = [];
 MONTHS.slice(BASE_MONTH_IDX).forEach(function (m) {
   (TIMELINE[m] ? TIMELINE[m].clients : []).forEach(function (c) {
-    if (c.status === 'pausado') return;          // congelado por regra
     if (getValueOverride(c.name,'pctComissao',MONTHS.indexOf(m)) !== undefined) return; // fixada à mão
     if (c.pctComissao !== commRate(c.mesesAtivos)) faixaRuim.push(m+'/'+c.name+': '+c.mesesAtivos+'m -> '+c.pctComissao);
   });
@@ -134,7 +133,19 @@ overrides['AGO'] = {'Braptec': 'pausado'};
 buildTimeline();
 var agoM = clientIn('AGO','Braptec').mesesAtivos;
 var setM = clientIn('SET','Braptec').mesesAtivos;
-eq('cliente pausado não acumula maturidade', setM, agoM);
+eq('pausado CONTINUA acumulando maturidade', setM, agoM + 1);
+var setP = clientIn('SET','Braptec');
+eq('pausado continua subindo de faixa (% segue a maturidade)', setP.pctComissao, commRate(setM));
+eq('mas a comissão segue zerada enquanto pausado', setP.valorComissao, 0);
+
+// Ao voltar a ativo, recebe pela faixa que alcançou durante a pausa.
+reset();
+overrides['AGO'] = {'Braptec': 'pausado'};
+overrides['SET'] = {'Braptec': 'normal'};
+buildTimeline();
+var back = clientIn('SET','Braptec');
+eq('ao reativar, volta a receber', back.valorComissao, +(back.valorMensal * back.pctComissao).toFixed(2));
+eq('...na faixa correspondente à maturidade acumulada', back.pctComissao, commRate(back.mesesAtivos));
 
 reset();
 overrides['AGO'] = {'Braptec': 'cancelando'};

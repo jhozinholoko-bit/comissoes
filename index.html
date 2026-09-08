@@ -741,30 +741,24 @@ function deriveClient(raw, monthIdx, ctx) {
   if (ovMensal !== undefined) client.valorMensal = ovMensal;
 
   // -- 3. MATURIDADE --------------------------------------------------------
-  // A paused client freezes: its maturity must not advance while inactive.
-  // The freeze is decided by the INHERITED status, not the edited one, so
-  // reactivating a client this month does not retroactively credit months.
+  // Keeps counting regardless of status: pausing stops the PAYMENT, not the
+  // relationship, so the client keeps ageing into higher tiers while paused.
   // Maturity is a COUNTER: an override anchors it in the month it was set, and
   // later months advance from that anchor (the carried value already has it).
   var ovMeses = getValueOverride(name, 'mesesAtivos', monthIdx);
   var ovMesesAt = getValueOverrideMonth(name, 'mesesAtivos', monthIdx);
   if (ovMeses !== undefined && ovMesesAt === monthIdx) {
     client.mesesAtivos = ovMeses;
-  } else if (ctx.advance && inherited !== 'pausado') {
+  } else if (ctx.advance) {
     client.mesesAtivos = (raw.mesesAtivos || 0) + 1;
   }
 
   // -- 4. % COMISSÃO ---------------------------------------------------------
-  // Defaults to the tier table; an explicit override pins it. A frozen
-  // (paused, un-overridden) client keeps the rate it had.
+  // Always follows the tier table for the current maturity; an explicit
+  // override pins it. Pausing does not freeze the rate — the client keeps
+  // climbing tiers, so on resuming they are paid at the rate they have earned.
   var ovPct = getValueOverride(name, 'pctComissao', monthIdx);
-  if (ovPct !== undefined) {
-    client.pctComissao = ovPct;
-  } else if (ctx.advance && inherited === 'pausado' && !(ovMeses !== undefined && ovMesesAt === monthIdx)) {
-    client.pctComissao = raw.pctComissao;
-  } else {
-    client.pctComissao = commRate(client.mesesAtivos);
-  }
+  client.pctComissao = (ovPct !== undefined) ? ovPct : commRate(client.mesesAtivos);
 
   // -- 5. COMISSÃO -----------------------------------------------------------
   // Defaults to mensalidade × %; an explicit override pins it.
@@ -776,8 +770,9 @@ function deriveClient(raw, monthIdx, ctx) {
   }
 
   // -- 6. STATUS FEEDBACK ---------------------------------------------------
-  // A paused client pays nothing. Applied last so it always wins, and applied
-  // to the FINAL status so pausing a client zeroes its commission immediately.
+  // Pausing stops ONLY the payment. Maturity and % above keep advancing, so a
+  // client resumed later is paid at the tier they reached while paused.
+  // Applied last, against the FINAL status, so the pause takes effect at once.
   if (client.status === 'pausado') client.valorComissao = 0;
 
   return client;
