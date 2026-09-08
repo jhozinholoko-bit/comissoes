@@ -690,27 +690,102 @@ function getValueOverride(name, field, monthIdx) {
   return undefined;
 }
 
-// Apply value overrides to a client at given monthIdx
-// Every numeric column is editable. Each falls back to its computed value when
-// no override exists, so untouched clients behave exactly as before.
-function applyValueOverrides(client, monthIdx) {
-  var ovMensal = getValueOverride(client.name, 'valorMensal', monthIdx);
+// Index of the month an override was set in, or -1. Needed for mesesAtivos,
+// which is a counter rather than a level: the override anchors the count and
+// later months keep advancing from it.
+function getValueOverrideMonth(name, field, monthIdx) {
+  for (var i = monthIdx; i >= BASE_MONTH_IDX; i--) {
+    var m = MONTHS[i];
+    if (valueOverrides[m] && valueOverrides[m][name] && valueOverrides[m][name][field] !== undefined) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+// ===========================================================================
+// SINGLE SOURCE OF TRUTH for the commission chain.
+//
+//   status -> mesesAtivos -> pctComissao -> valorComissao
+//
+// Every field resolves in dependency order: a manual override wins, otherwise
+// the value is derived from the field above it. Because derivation always runs
+// downstream of whatever the override supplied, the manual and automatic paths
+// produce identical results and the four columns can never disagree.
+//
+// `raw` carries the previous month's (or spreadsheet's) values; `ctx` says how
+// maturity should advance for this month.
+// ===========================================================================
+function deriveClient(raw, monthIdx, ctx) {
+  ctx = ctx || {};
+  var name = raw.name;
+  var client = {
+    name: name,
+    valorMensal: raw.valorMensal,
+    dataInicio: raw.dataInicio,
+    mesesAtivos: raw.mesesAtivos,
+    pctComissao: raw.pctComissao,
+    valorComissao: raw.valorComissao,
+    status: raw.status,
+    isManual: (ctx.isManual !== undefined) ? ctx.isManual : raw.isManual
+  };
+
+  // -- 1. STATUS ------------------------------------------------------------
+  // A status override for this month wins; otherwise the status carries over.
+  var ovrStatus = (overrides[MONTHS[monthIdx]] || {})[name];
+  var inherited = raw.status;
+  client.status = ovrStatus || inherited;
+
+  // -- 2. MENSALIDADE -------------------------------------------------------
+  var ovMensal = getValueOverride(name, 'valorMensal', monthIdx);
   if (ovMensal !== undefined) client.valorMensal = ovMensal;
 
-  // Maturity drives the commission tier, so an override here changes % too.
-  var ovMeses = getValueOverride(client.name, 'mesesAtivos', monthIdx);
-  if (ovMeses !== undefined) client.mesesAtivos = ovMeses;
+  // -- 3. MATURIDADE --------------------------------------------------------
+  // A paused client freezes: its maturity must not advance while inactive.
+  // The freeze is decided by the INHERITED status, not the edited one, so
+  // reactivating a client this month does not retroactively credit months.
+  // Maturity is a COUNTER: an override anchors it in the month it was set, and
+  // later months advance from that anchor (the carried value already has it).
+  var ovMeses = getValueOverride(name, 'mesesAtivos', monthIdx);
+  var ovMesesAt = getValueOverrideMonth(name, 'mesesAtivos', monthIdx);
+  if (ovMeses !== undefined && ovMesesAt === monthIdx) {
+    client.mesesAtivos = ovMeses;
+  } else if (ctx.advance && inherited !== 'pausado') {
+    client.mesesAtivos = (raw.mesesAtivos || 0) + 1;
+  }
 
-  // % defaults to the tier table; an explicit override pins it.
-  var ovPct = getValueOverride(client.name, 'pctComissao', monthIdx);
-  client.pctComissao = (ovPct !== undefined) ? ovPct : commRate(client.mesesAtivos);
+  // -- 4. % COMISSÃO ---------------------------------------------------------
+  // Defaults to the tier table; an explicit override pins it. A frozen
+  // (paused, un-overridden) client keeps the rate it had.
+  var ovPct = getValueOverride(name, 'pctComissao', monthIdx);
+  if (ovPct !== undefined) {
+    client.pctComissao = ovPct;
+  } else if (ctx.advance && inherited === 'pausado' && !(ovMeses !== undefined && ovMesesAt === monthIdx)) {
+    client.pctComissao = raw.pctComissao;
+  } else {
+    client.pctComissao = commRate(client.mesesAtivos);
+  }
 
-  // Commission defaults to mensalidade × %; an explicit override pins it.
-  var ovComissao = getValueOverride(client.name, 'valorComissao', monthIdx);
-  client.valorComissao = (ovComissao !== undefined)
-    ? ovComissao
-    : +(client.valorMensal * client.pctComissao).toFixed(2);
+  // -- 5. COMISSÃO -----------------------------------------------------------
+  // Defaults to mensalidade × %; an explicit override pins it.
+  var ovComissao = getValueOverride(name, 'valorComissao', monthIdx);
+  if (ovComissao !== undefined) {
+    client.valorComissao = ovComissao;
+  } else {
+    client.valorComissao = +(client.valorMensal * client.pctComissao).toFixed(2);
+  }
+
+  // -- 6. STATUS FEEDBACK ---------------------------------------------------
+  // A paused client pays nothing. Applied last so it always wins, and applied
+  // to the FINAL status so pausing a client zeroes its commission immediately.
+  if (client.status === 'pausado') client.valorComissao = 0;
+
   return client;
+}
+
+// Back-compat shim: existing call sites that only need override resolution.
+function applyValueOverrides(client, monthIdx) {
+  return deriveClient(client, monthIdx, {advance: false, isManual: client.isManual});
 }
 
 // TIMELINE: single source of truth, computed from JUL base + monthly events
@@ -768,12 +843,15 @@ function buildTimeline() {
   if (julD) {
     var julOvr = overrides[julMonth] || {};
     var julClients = julD.clients.map(function(c) {
-      var mesesAtivos = c.isManual ? (c.mesesAtivos || 1) : ((c.mesesAtivos || 0) + 1);
-      var rate = commRate(mesesAtivos);
-      var valorComissao = +(c.valorMensal * rate).toFixed(2);
-      var finalStatus = julOvr[c.name] || c.status;
-      var client = {name:c.name, valorMensal:c.valorMensal, dataInicio:c.dataInicio, mesesAtivos:mesesAtivos, pctComissao:rate, valorComissao:valorComissao, status:finalStatus, isManual:c.isManual};
-      return applyValueOverrides(client, BASE_MONTH_IDX);
+      // Spreadsheet maturity runs one month behind the formula, so a non-manual
+      // client is bumped by +1 before deriving. Manual clients start at 1.
+      var seed = {
+        name: c.name, valorMensal: c.valorMensal, dataInicio: c.dataInicio,
+        mesesAtivos: c.isManual ? (c.mesesAtivos || 1) : ((c.mesesAtivos || 0) + 1),
+        pctComissao: c.pctComissao, valorComissao: c.valorComissao,
+        status: c.status, isManual: c.isManual
+      };
+      return deriveClient(seed, BASE_MONTH_IDX, {advance: false, isManual: c.isManual});
     });
     TIMELINE[julMonth] = {clients:julClients, extras:julD.extras||[]};
   }
@@ -789,33 +867,16 @@ function buildTimeline() {
     var carried = prev.clients
       .filter(function(c) { return c.status !== 'cancelando'; })
       .map(function(c) {
-        var inherited = c.status;
-        var finalStatus = ovr[c.name] || inherited;
-
-        // Maturity: increment only if inherited was ACTIVE (not paused)
-        // PROTECTION: once paused, never auto-reactivate
-        var mesesAtivos, rate, valorComissao;
-        if (inherited === 'pausado') {
-          mesesAtivos = c.mesesAtivos; // freeze
-          rate = c.pctComissao;          // freeze
-          valorComissao = c.valorComissao; // freeze
-        } else {
-          mesesAtivos = c.mesesAtivos + 1;
-          rate = commRate(mesesAtivos);
-          valorComissao = +(c.valorMensal * rate).toFixed(2);
-        }
-
-        var client = {name:c.name, valorMensal:c.valorMensal, dataInicio:c.dataInicio, mesesAtivos:mesesAtivos, pctComissao:rate, valorComissao:valorComissao, status:finalStatus, isManual:false};
-        return applyValueOverrides(client, i);
+        // advance:true -> maturity ticks a month unless the client came in paused.
+        return deriveClient(c, i, {advance: true, isManual: false});
       });
 
     var thisManual = (DATA[month] && DATA[month].clients || []).filter(function(c){return c.isManual;});
     thisManual.forEach(function(mc) {
       if (carried.find(function(c){return c.name===mc.name;})) return;
-      // Copy before overriding — mc points into DATA and must not be mutated,
-      // or the edited value would leak into every month's base data.
-      var client = {name:mc.name, valorMensal:mc.valorMensal, dataInicio:mc.dataInicio, mesesAtivos:mc.mesesAtivos, pctComissao:mc.pctComissao, valorComissao:mc.valorComissao, status:ovr[mc.name] || mc.status, isManual:true};
-      carried.push(applyValueOverrides(client, i));
+      // deriveClient copies before writing, so DATA is never mutated — otherwise
+      // an edited value would leak into the base data for every month.
+      carried.push(deriveClient(mc, i, {advance: false, isManual: true}));
     });
 
     // Inherit unresolved pending extras from previous month
@@ -932,6 +993,16 @@ function commitEditValue(input, clientName, field) {
   changeValue(clientName, field, newVal);
 }
 
+// Downstream fields re-derived when a field is edited, following the chain
+// mesesAtivos -> pctComissao -> valorComissao. valorMensal feeds the commission
+// directly; valorComissao is the leaf and invalidates nothing.
+var DEPENDENTS = {
+  mesesAtivos:   ['pctComissao', 'valorComissao'],
+  pctComissao:   ['valorComissao'],
+  valorMensal:   ['valorComissao'],
+  valorComissao: []
+};
+
 function changeValue(clientName, field, newValue) {
   // Edits only take effect from the base month onward — earlier months are
   // historical records rebuilt straight from the spreadsheet, so an override
@@ -946,18 +1017,14 @@ function changeValue(clientName, field, newValue) {
   if (!valueOverrides[month][clientName]) valueOverrides[month][clientName] = {};
   valueOverrides[month][clientName][field] = newValue;
 
-  // Editing an input of the commission drops a previously pinned commission,
-  // otherwise the pinned value would silently win and the edit would look lost.
-  var fields = [field];
-  if (field === 'valorMensal' || field === 'pctComissao' || field === 'mesesAtivos') {
-    delete valueOverrides[month][clientName].valorComissao;
-    fields.push('valorComissao');
-  }
-  // Maturity drives the tier, so re-deriving % means dropping any pinned %.
-  if (field === 'mesesAtivos') {
-    delete valueOverrides[month][clientName].pctComissao;
-    fields.push('pctComissao');
-  }
+  // Editing a field re-derives everything downstream of it in the chain
+  //   mesesAtivos -> pctComissao -> valorComissao
+  // so any pinned downstream value is dropped. Without this the stale pin would
+  // silently win and the edit would look like it did nothing.
+  var fields = [field].concat(DEPENDENTS[field] || []);
+  (DEPENDENTS[field] || []).forEach(function(f) {
+    delete valueOverrides[month][clientName][f];
+  });
 
   // Clear stale future overrides for every field this edit invalidates
   for (var i = currentIdx + 1; i < MONTHS.length; i++) {

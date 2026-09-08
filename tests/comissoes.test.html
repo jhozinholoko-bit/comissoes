@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Testes — módulo de comissões</title>
+<style>
+  body { font: 14px ui-monospace, Menlo, Consolas, monospace; background:#0b1020; color:#e6edf7; padding:24px; }
+  h1 { font-size:16px; margin:0 0 4px; }
+  .sub { color:#8aa1c9; margin-bottom:18px; font-size:12px; }
+  .case { padding:7px 10px; border-radius:6px; margin:3px 0; border-left:3px solid transparent; }
+  .pass { background:rgba(34,197,94,0.08); border-left-color:#22c55e; }
+  .fail { background:rgba(239,68,68,0.12); border-left-color:#ef4444; }
+  .tag { font-weight:700; margin-right:8px; }
+  .pass .tag { color:#22c55e; } .fail .tag { color:#ef4444; }
+  .detail { color:#f9a8a8; margin-left:26px; font-size:12px; white-space:pre-wrap; }
+  .grp { margin:18px 0 6px; color:#7dd3fc; font-weight:700; font-size:13px; }
+  #sum { margin-top:20px; padding:12px 14px; border-radius:8px; font-weight:700; }
+</style>
+<h1>Módulo de comissões — testes de recálculo</h1>
+<div class="sub">Executa as funções reais extraídas de index.html (nada é reimplementado aqui).</div>
+<div id="out"></div>
+<div id="sum"></div>
+
+<script>
+// ---- Stub Supabase before loading the app code (it builds a client at load) --
+window.supabase = { createClient: function () {
+  var noop = function () { return Promise.resolve({data: [], error: null}); };
+  return { from: function () { return {select: noop, upsert: noop}; } };
+}};
+</script>
+
+<script>
+// The app source is injected here at runtime by the runner (see run_tests.py).
+</script>
+
+<script>
+var out = document.getElementById('out');
+var pass = 0, fail = 0;
+
+function group(t) { var d = document.createElement('div'); d.className='grp'; d.textContent=t; out.appendChild(d); }
+function ok(name, cond, detail) {
+  var d = document.createElement('div');
+  d.className = 'case ' + (cond ? 'pass' : 'fail');
+  d.innerHTML = '<span class="tag">' + (cond ? 'PASS' : 'FALHOU') + '</span>' + name;
+  out.appendChild(d);
+  if (!cond && detail) {
+    var e = document.createElement('div'); e.className='detail'; e.textContent = detail; out.appendChild(e);
+  }
+  cond ? pass++ : fail++;
+}
+function eq(name, actual, expected) {
+  ok(name, actual === expected, 'esperado: ' + expected + '\nobtido:   ' + actual);
+}
+
+// Reset all mutable app state between tests.
+function reset() {
+  overrides = {};
+  valueOverrides = {};
+  MONTHS.forEach(function (m) {
+    if (!DATA[m]) DATA[m] = {clients: [], total: 0, extras: []};
+    DATA[m].clients = DATA[m].clients.filter(function (c) { return !c.isManual; });
+  });
+}
+function clientIn(month, name) {
+  var t = TIMELINE[month];
+  return t && t.clients.find(function (c) { return c.name === name; });
+}
+var AGO = 7, SET = 8;
+
+// ===========================================================================
+group('1. Cadeia de dependência: maturidade → % → comissão');
+
+reset();
+valueOverrides['AGO'] = {'Braptec': {mesesAtivos: 12}};
+buildTimeline();
+var b = clientIn('AGO', 'Braptec');
+eq('maturidade 12m aplica a faixa de 10%', b.pctComissao, 0.10);
+eq('comissão recalcula = mensalidade × 10%', b.valorComissao, +(b.valorMensal * 0.10).toFixed(2));
+
+reset();
+valueOverrides['AGO'] = {'Braptec': {mesesAtivos: 16}};
+buildTimeline();
+eq('maturidade 16m aplica a faixa de 12%', clientIn('AGO','Braptec').pctComissao, 0.12);
+
+reset();
+valueOverrides['AGO'] = {'Braptec': {pctComissao: 0.09}};
+buildTimeline();
+var b2 = clientIn('AGO','Braptec');
+eq('% fixada manualmente é respeitada', b2.pctComissao, 0.09);
+eq('comissão segue a % fixada', b2.valorComissao, +(b2.valorMensal * 0.09).toFixed(2));
+
+reset();
+valueOverrides['AGO'] = {'Braptec': {valorMensal: 2000}};
+buildTimeline();
+var b3 = clientIn('AGO','Braptec');
+eq('mensalidade editada é aplicada', b3.valorMensal, 2000);
+eq('comissão recalcula sobre a nova mensalidade', b3.valorComissao, +(2000 * b3.pctComissao).toFixed(2));
+
+// ===========================================================================
+group('2. Consistência: os 4 campos nunca se contradizem');
+
+reset();
+buildTimeline();
+var inconsist = [];
+MONTHS.slice(BASE_MONTH_IDX).forEach(function (m) {
+  (TIMELINE[m] ? TIMELINE[m].clients : []).forEach(function (c) {
+    if (c.status === 'pausado') { if (c.valorComissao !== 0) inconsist.push(m+'/'+c.name+': pausado com comissão '+c.valorComissao); return; }
+    var esperado = +(c.valorMensal * c.pctComissao).toFixed(2);
+    if (Math.abs(c.valorComissao - esperado) > 0.011) inconsist.push(m+'/'+c.name+': '+c.valorComissao+' != '+esperado);
+  });
+});
+ok('comissão = mensalidade × % em todos os clientes/meses', inconsist.length === 0, inconsist.slice(0,8).join('\n'));
+
+reset();
+buildTimeline();
+var faixaRuim = [];
+MONTHS.slice(BASE_MONTH_IDX).forEach(function (m) {
+  (TIMELINE[m] ? TIMELINE[m].clients : []).forEach(function (c) {
+    if (c.status === 'pausado') return;          // congelado por regra
+    if (getValueOverride(c.name,'pctComissao',MONTHS.indexOf(m)) !== undefined) return; // fixada à mão
+    if (c.pctComissao !== commRate(c.mesesAtivos)) faixaRuim.push(m+'/'+c.name+': '+c.mesesAtivos+'m -> '+c.pctComissao);
+  });
+});
+ok('% corresponde à faixa da maturidade (sem override)', faixaRuim.length === 0, faixaRuim.slice(0,8).join('\n'));
+
+// ===========================================================================
+group('3. Status participa do recálculo');
+
+reset();
+overrides['AGO'] = {'Braptec': 'pausado'};
+buildTimeline();
+eq('pausar zera a comissão no mesmo mês', clientIn('AGO','Braptec').valorComissao, 0);
+
+reset();
+overrides['AGO'] = {'Braptec': 'pausado'};
+buildTimeline();
+var agoM = clientIn('AGO','Braptec').mesesAtivos;
+var setM = clientIn('SET','Braptec').mesesAtivos;
+eq('cliente pausado não acumula maturidade', setM, agoM);
+
+reset();
+overrides['AGO'] = {'Braptec': 'cancelando'};
+buildTimeline();
+ok('cliente cancelando sai no mês seguinte', clientIn('SET','Braptec') === undefined,
+   'ainda presente em SET');
+
+// ===========================================================================
+group('4. Edição manual = mesmo resultado do automático');
+
+reset();
+buildTimeline();
+var autoC = clientIn('AGO','Braptec');
+var autoPct = autoC.pctComissao, autoMeses = autoC.mesesAtivos;
+
+reset();
+valueOverrides['AGO'] = {'Braptec': {mesesAtivos: autoMeses}};
+buildTimeline();
+var manC = clientIn('AGO','Braptec');
+eq('override igual ao valor automático produz a mesma %', manC.pctComissao, autoPct);
+eq('...e a mesma comissão', manC.valorComissao, autoC.valorComissao);
+
+// ===========================================================================
+group('5. Propagação para os meses seguintes');
+
+reset();
+valueOverrides['AGO'] = {'Braptec': {valorMensal: 3000}};
+buildTimeline();
+eq('mensalidade editada propaga para SET', clientIn('SET','Braptec').valorMensal, 3000);
+var s5 = clientIn('SET','Braptec');
+eq('comissão de SET usa a mensalidade propagada', s5.valorComissao, +(3000 * s5.pctComissao).toFixed(2));
+
+reset();
+valueOverrides['AGO'] = {'Braptec': {mesesAtivos: 11}};
+buildTimeline();
+eq('maturidade editada continua avançando em SET', clientIn('SET','Braptec').mesesAtivos, 12);
+eq('...e SET cruza para a faixa de 10%', clientIn('SET','Braptec').pctComissao, 0.10);
+
+// ===========================================================================
+group('6. Invalidação de overrides obsoletos (changeValue)');
+
+reset();
+var prevIdx = currentIdx; currentIdx = AGO;
+valueOverrides['AGO'] = {'Braptec': {valorComissao: 999}};
+changeValue('Braptec', 'valorMensal', 2500);
+ok('editar mensalidade descarta comissão fixada',
+   valueOverrides['AGO']['Braptec'].valorComissao === undefined,
+   'restou: ' + JSON.stringify(valueOverrides['AGO']['Braptec']));
+var b6 = clientIn('AGO','Braptec');
+eq('comissão volta a ser calculada', b6.valorComissao, +(2500 * b6.pctComissao).toFixed(2));
+
+reset(); currentIdx = AGO;
+valueOverrides['AGO'] = {'Braptec': {pctComissao: 0.09, valorComissao: 999}};
+changeValue('Braptec', 'mesesAtivos', 12);
+ok('editar maturidade descarta % e comissão fixadas',
+   valueOverrides['AGO']['Braptec'].pctComissao === undefined &&
+   valueOverrides['AGO']['Braptec'].valorComissao === undefined,
+   'restou: ' + JSON.stringify(valueOverrides['AGO']['Braptec']));
+eq('% volta a seguir a faixa (12m → 10%)', clientIn('AGO','Braptec').pctComissao, 0.10);
+
+reset(); currentIdx = AGO;
+valueOverrides['SET'] = {'Braptec': {valorMensal: 111}};
+changeValue('Braptec', 'valorMensal', 2222);
+ok('override futuro obsoleto é limpo',
+   !valueOverrides['SET'] || !valueOverrides['SET']['Braptec'],
+   'SET ainda tem: ' + JSON.stringify(valueOverrides['SET']));
+currentIdx = prevIdx;
+
+// ===========================================================================
+group('7. Persistência (o que vai para o banco)');
+
+reset(); currentIdx = AGO;
+changeValue('Braptec', 'mesesAtivos', 12);
+eq('override é gravado no mês corrente', valueOverrides['AGO']['Braptec'].mesesAtivos, 12);
+reset(); currentIdx = AGO;
+changeValue('Braptec', 'pctComissao', 0.09);
+buildTimeline();
+eq('valor persistido reconstrói o mesmo estado ao recarregar',
+   clientIn('AGO','Braptec').pctComissao, 0.09);
+currentIdx = prevIdx;
+
+// ===========================================================================
+group('8. Cliente manual (adicionado à mão)');
+
+reset();
+DATA['AGO'].clients.push({name:'Flora', valorMensal:750, dataInicio:'', mesesAtivos:1,
+  pctComissao:0.03, valorComissao:22.5, status:'normal', isManual:true});
+valueOverrides['AGO'] = {'Flora': {valorMensal: 700}};
+buildTimeline();
+var f = clientIn('AGO','Flora');
+ok('cliente manual existe no mês', !!f, 'não encontrado');
+eq('edição em cliente manual é respeitada', f && f.valorMensal, 700);
+eq('comissão do manual recalcula', f && f.valorComissao, +(700 * f.pctComissao).toFixed(2));
+eq('DATA original não é mutado', DATA['AGO'].clients.find(function(c){return c.name==='Flora';}).valorMensal, 750);
+
+// ===========================================================================
+group('9. Idempotência (sem loop / sem cálculo duplicado)');
+
+reset();
+valueOverrides['AGO'] = {'Braptec': {mesesAtivos: 12}};
+buildTimeline();
+var snap1 = JSON.stringify(TIMELINE['AGO'].clients);
+buildTimeline();
+buildTimeline();
+var snap2 = JSON.stringify(TIMELINE['AGO'].clients);
+ok('rodar buildTimeline 3× dá o mesmo resultado', snap1 === snap2, 'estado divergiu entre execuções');
+
+reset();
+buildTimeline();
+var meses1 = clientIn('SET','Braptec').mesesAtivos;
+buildTimeline();
+eq('maturidade não acumula a cada render', clientIn('SET','Braptec').mesesAtivos, meses1);
+
+// ===========================================================================
+var sum = document.getElementById('sum');
+sum.textContent = pass + ' passaram · ' + fail + ' falharam';
+sum.style.background = fail ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)';
+sum.style.color = fail ? '#fca5a5' : '#86efac';
+document.title = (fail ? 'FALHOU ' : 'OK ') + pass + '/' + (pass + fail);
+window.__RESULT__ = {pass: pass, fail: fail};
+</script>
