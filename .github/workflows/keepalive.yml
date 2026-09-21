@@ -1,0 +1,85 @@
+name: Manter Supabase ativo
+
+# O projeto Supabase no plano free pausa apos ~7 dias sem atividade.
+# Este job escreve e le de volta uma linha de heartbeat para gerar atividade
+# real, sem depender de alguem abrir o app.
+on:
+  schedule:
+    # A cada 3 dias, 09:00 UTC (06:00 em Brasilia). Margem folgada ante o limite.
+    - cron: '0 9 */3 * *'
+  workflow_dispatch:        # permite rodar na mao pelo botao "Run workflow"
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gravar e confirmar heartbeat
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_KEY:-}" ]; then
+            echo "::error::Faltam os secrets SUPABASE_URL e/ou SUPABASE_KEY no repositorio."
+            exit 1
+          fi
+
+          AGORA="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          TABELA="comissoes_state"
+          ENDPOINT="${SUPABASE_URL}/rest/v1/${TABELA}"
+
+          echo "Gravando heartbeat em ${AGORA}..."
+
+          # POST com Prefer: resolution=merge-duplicates = upsert.
+          # return=representation faz o banco devolver a linha gravada, entao
+          # so tratamos como sucesso o que o banco confirmou de verdade.
+          CORPO=$(printf '[{"id":"heartbeat","data":{"last_ping":"%s","origem":"github-actions"},"updated_at":"%s"}]' "$AGORA" "$AGORA")
+
+          RESP=$(mktemp)
+          CODIGO=$(curl -sS -o "$RESP" -w '%{http_code}' --max-time 30 \
+            -X POST "$ENDPOINT" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates,return=representation" \
+            -d "$CORPO") || true
+
+          echo "HTTP ${CODIGO}"
+          echo "Resposta: $(cat "$RESP")"
+
+          case "$CODIGO" in
+            200|201)
+              ;;
+            000)
+              echo "::error::Sem resposta do Supabase (DNS ou rede). O projeto pode estar pausado."
+              exit 1
+              ;;
+            401|403)
+              echo "::error::Credenciais recusadas (HTTP ${CODIGO}). Confira os secrets."
+              exit 1
+              ;;
+            404)
+              echo "::error::Tabela '${TABELA}' nao encontrada (HTTP 404)."
+              exit 1
+              ;;
+            *)
+              echo "::error::Falha ao gravar (HTTP ${CODIGO})."
+              exit 1
+              ;;
+          esac
+
+          # Confirma lendo de volta: um POST aceito nao garante linha gravada.
+          LIDO=$(curl -sS --max-time 30 \
+            "${ENDPOINT}?id=eq.heartbeat&select=data" \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}")
+
+          echo "Lido de volta: ${LIDO}"
+
+          if echo "$LIDO" | grep -q "$AGORA"; then
+            echo "OK: heartbeat confirmado pelo banco em ${AGORA}."
+          else
+            echo "::error::Gravacao nao confirmada na leitura. Valor atual: ${LIDO}"
+            exit 1
+          fi
