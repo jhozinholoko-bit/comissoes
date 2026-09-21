@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Backup — Comissões</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0e1a; --surface: #111827; --surface2: #1a2235;
+    --border: #243049; --text: #e6edf7; --text-muted: #8aa1c9;
+    --accent: #818cf8; --green: #22c55e; --red: #ef4444; --orange: #f97316;
+  }
+  body {
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    padding: 28px 20px; line-height: 1.5;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 21px; font-weight: 800; margin-bottom: 6px; }
+  h1 span { color: var(--accent); }
+  .sub { color: var(--text-muted); font-size: 13px; margin-bottom: 24px; }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .card p { color: var(--text-muted); font-size: 13px; margin-bottom: 14px; }
+
+  .status {
+    display: flex; align-items: center; gap: 9px;
+    padding: 12px 14px; border-radius: 9px; font-size: 13px;
+    background: var(--surface2); margin-bottom: 14px;
+  }
+  .status.ok    { background: rgba(34,197,94,0.1);  color: #86efac; }
+  .status.warn  { background: rgba(249,115,22,0.1); color: #fdba74; }
+  .status.error { background: rgba(239,68,68,0.12); color: #fca5a5; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--accent); color: #0b1020; border: none;
+    padding: 11px 20px; border-radius: 9px; cursor: pointer;
+    font-size: 14px; font-weight: 700; font-family: inherit;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; filter: none; }
+  .btn-ghost {
+    background: transparent; color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+  th { text-align: left; color: var(--text-muted); font-weight: 600; font-size: 11px;
+       text-transform: uppercase; letter-spacing: 0.05em; padding: 7px 0; }
+  td { padding: 8px 0; border-top: 1px solid var(--border); }
+  td.right, th.right { text-align: right; }
+  .muted { color: var(--text-muted); }
+  .tag { font-size: 11px; padding: 2px 7px; border-radius: 5px; font-weight: 700; }
+  .tag.has { background: rgba(34,197,94,0.15); color: #86efac; }
+  .tag.empty { background: rgba(138,161,201,0.12); color: var(--text-muted); }
+
+  pre {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; font-size: 11px; color: var(--text-muted);
+    max-height: 220px; overflow: auto; margin-top: 12px;
+    white-space: pre-wrap; word-break: break-all;
+  }
+  .drop {
+    border: 1.5px dashed var(--border); border-radius: 9px; padding: 22px;
+    text-align: center; color: var(--text-muted); font-size: 13px; cursor: pointer;
+  }
+  .drop:hover { border-color: var(--accent); color: var(--text); }
+  .drop input { display: none; }
+  .note { font-size: 12px; color: var(--text-muted); margin-top: 12px; }
+  .note b { color: var(--orange); }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Backup <span>Comissões</span></h1>
+  <div class="sub">Salva e restaura os dados guardados neste navegador (localStorage).</div>
+
+  <div class="card">
+    <h2>O que está guardado aqui</h2>
+    <p>Estes são os dados que o app gravou neste navegador.</p>
+    <div id="status" class="status">Verificando...</div>
+    <table>
+      <thead><tr><th>Chave</th><th class="right">Conteúdo</th><th class="right">Tamanho</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>1 · Baixar backup</h2>
+    <p>Gera um arquivo .json com tudo. Guarde-o fora do navegador.</p>
+    <div class="row">
+      <button class="btn" id="btnDownload">⬇ Baixar backup</button>
+      <button class="btn btn-ghost" id="btnPreview">Ver conteúdo</button>
+    </div>
+    <pre id="preview" style="display:none"></pre>
+  </div>
+
+  <div class="card">
+    <h2>2 · Restaurar de um backup</h2>
+    <p>Escolha um .json salvo antes. Isso substitui os dados deste navegador.</p>
+    <label class="drop" id="drop">
+      Clique para escolher o arquivo .json
+      <input type="file" id="file" accept="application/json,.json">
+    </label>
+    <div id="restoreMsg" class="status" style="display:none"></div>
+    <div class="note">
+      Depois de restaurar, abra o app normalmente. Se o Supabase estiver de volta e
+      o banco estiver vazio, o app envia estes dados para lá sozinho.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Importante</h2>
+    <div class="note">
+      Enquanto o Supabase estiver fora, <b>estes dados só existem neste navegador</b>.
+      Não limpe o cache nem os dados do site antes de ter o backup salvo.
+      O backup precisa ser feito <b>no mesmo navegador e aparelho</b> em que você usa o app.
+    </div>
+  </div>
+</div>
+
+<script>
+// As quatro chaves que o app grava (index.html: saveState / _loadFromLocalStorage).
+var KEYS = ['comm_overrides', 'comm_manual', 'comm_extras', 'comm_valueOverrides'];
+var META = 'comm_lastHeartbeat';
+
+function read(k) {
+  try { return localStorage.getItem(k); } catch (e) { return null; }
+}
+function bytes(s) { return s ? new Blob([s]).size : 0; }
+function fmtBytes(n) {
+  if (n === 0) return '—';
+  if (n < 1024) return n + ' B';
+  return (n / 1024).toFixed(1) + ' KB';
+}
+
+// Descreve o conteúdo de cada chave em português, sem jargão.
+function describe(key, raw) {
+  if (!raw) return '<span class="tag empty">vazio</span>';
+  var v;
+  try { v = JSON.parse(raw); } catch (e) { return '<span class="tag empty">ilegível</span>'; }
+  var n = 0, detail = '';
+  if (key === 'comm_overrides') {
+    Object.keys(v).forEach(function (m) { n += Object.keys(v[m] || {}).length; });
+    detail = n + ' mudança(s) de status';
+  } else if (key === 'comm_valueOverrides') {
+    Object.keys(v).forEach(function (m) {
+      Object.keys(v[m] || {}).forEach(function (c) { n += Object.keys(v[m][c] || {}).length; });
+    });
+    detail = n + ' valor(es) editado(s)';
+  } else if (key === 'comm_manual') {
+    Object.keys(v).forEach(function (m) { n += (v[m] || []).length; });
+    detail = n + ' cliente(s) manual(is)';
+  } else if (key === 'comm_extras') {
+    Object.keys(v).forEach(function (m) { n += (v[m] || []).length; });
+    detail = n + ' receita(s) extra(s)';
+  }
+  return '<span class="tag ' + (n > 0 ? 'has' : 'empty') + '">' + detail + '</span>';
+}
+
+var total = 0, found = 0;
+function refresh() {
+  total = 0; found = 0;
+  var html = '';
+  KEYS.forEach(function (k) {
+    var raw = read(k);
+    var b = bytes(raw);
+    total += b;
+    if (raw) found++;
+    html += '<tr><td class="muted">' + k + '</td>'
+          + '<td class="right">' + describe(k, raw) + '</td>'
+          + '<td class="right muted">' + fmtBytes(b) + '</td></tr>';
+  });
+  document.getElementById('rows').innerHTML = html;
+
+  var st = document.getElementById('status');
+  var hb = read(META);
+  if (found === 0) {
+    st.className = 'status error';
+    st.textContent = '✕ Nenhum dado encontrado neste navegador. '
+      + 'Verifique se abriu esta página no mesmo navegador/aparelho em que usa o app.';
+    document.getElementById('btnDownload').disabled = true;
+  } else {
+    st.className = 'status ok';
+    st.textContent = '✓ ' + found + ' de ' + KEYS.length + ' chaves com dados · '
+      + fmtBytes(total) + (hb ? ' · último check-in: ' + hb.slice(0, 10) : '');
+    document.getElementById('btnDownload').disabled = false;
+  }
+}
+
+function buildBackup() {
+  var payload = {
+    _tipo: 'backup-comissoes',
+    _versao: 1,
+    _gerado_em: new Date().toISOString(),
+    _origem: location.href,
+    dados: {}
+  };
+  KEYS.concat([META]).forEach(function (k) {
+    var raw = read(k);
+    if (raw !== null) payload.dados[k] = raw;   // guarda como string, igual ao original
+  });
+  return JSON.stringify(payload, null, 2);
+}
+
+document.getElementById('btnDownload').onclick = function () {
+  var blob = new Blob([buildBackup()], {type: 'application/json'});
+  var d = new Date();
+  var stamp = d.getFullYear() + '-'
+            + String(d.getMonth() + 1).padStart(2, '0') + '-'
+            + String(d.getDate()).padStart(2, '0');
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'comissoes-backup-' + stamp + '.json';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+};
+
+document.getElementById('btnPreview').onclick = function () {
+  var pre = document.getElementById('preview');
+  if (pre.style.display === 'none') {
+    pre.textContent = buildBackup();
+    pre.style.display = 'block';
+    this.textContent = 'Ocultar';
+  } else {
+    pre.style.display = 'none';
+    this.textContent = 'Ver conteúdo';
+  }
+};
+
+document.getElementById('file').onchange = function (e) {
+  var f = e.target.files && e.target.files[0];
+  var msg = document.getElementById('restoreMsg');
+  msg.style.display = 'flex';
+  if (!f) return;
+
+  var fr = new FileReader();
+  fr.onload = function () {
+    var parsed;
+    try { parsed = JSON.parse(fr.result); }
+    catch (err) {
+      msg.className = 'status error';
+      msg.textContent = '✕ Arquivo inválido: não é um JSON legível.';
+      return;
+    }
+    if (!parsed || parsed._tipo !== 'backup-comissoes' || !parsed.dados) {
+      msg.className = 'status error';
+      msg.textContent = '✕ Este arquivo não é um backup das Comissões.';
+      return;
+    }
+    var keys = Object.keys(parsed.dados);
+    if (!confirm('Restaurar ' + keys.length + ' chave(s) do backup de '
+                 + (parsed._gerado_em || '?').slice(0, 10) + '?\n\n'
+                 + 'Os dados atuais deste navegador serão substituídos.')) {
+      msg.style.display = 'none';
+      return;
+    }
+    var okCount = 0, failed = [];
+    keys.forEach(function (k) {
+      try { localStorage.setItem(k, parsed.dados[k]); okCount++; }
+      catch (err) { failed.push(k); }
+    });
+    if (failed.length) {
+      msg.className = 'status warn';
+      msg.textContent = '⚠ Restaurou ' + okCount + ', falhou em: ' + failed.join(', ');
+    } else {
+      msg.className = 'status ok';
+      msg.textContent = '✓ Restaurado (' + okCount + ' chaves). Abra o app para conferir.';
+    }
+    refresh();
+  };
+  fr.readAsText(f);
+};
+
+document.getElementById('drop').onclick = function (e) {
+  if (e.target.tagName !== 'INPUT') document.getElementById('file').click();
+};
+
+refresh();
+</script>
+</body>
+</html>
