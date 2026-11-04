@@ -260,6 +260,46 @@ buildTimeline();
 eq('maturidade não acumula a cada render', clientIn('SET','Braptec').mesesAtivos, meses1);
 
 // ===========================================================================
+group('10. Valor editado não trava a faixa (regra vale de DEZ em diante)');
+
+var NOV = 10, DEZ = 11;
+
+reset();
+valueOverrides['SET'] = {'Braptec': {pctComissao: 0.09}};
+buildTimeline();
+var bSet = clientIn('SET','Braptec'), bDez = clientIn('DEZ','Braptec');
+ok('pré-condição: Braptec muda de faixa entre SET e DEZ',
+   commRate(bSet.mesesAtivos) !== commRate(bDez.mesesAtivos), bSet.mesesAtivos + 'm -> ' + bDez.mesesAtivos + 'm');
+eq('antes de DEZ a % fixada continua valendo (meses fechados não mudam)', clientIn('NOV','Braptec').pctComissao, 0.09);
+eq('em DEZ a % fixada cai e volta a seguir a faixa', bDez.pctComissao, commRate(bDez.mesesAtivos));
+eq('...e a comissão segue a faixa', bDez.valorComissao, +(bDez.valorMensal * bDez.pctComissao).toFixed(2));
+
+reset();
+valueOverrides['NOV'] = {'Braptec': {pctComissao: 0.09}};
+buildTimeline();
+ok('pré-condição: mesma faixa em NOV e DEZ',
+   commRate(clientIn('NOV','Braptec').mesesAtivos) === commRate(clientIn('DEZ','Braptec').mesesAtivos));
+eq('% fixada segue valendo enquanto a faixa não muda', clientIn('DEZ','Braptec').pctComissao, 0.09);
+
+reset();
+valueOverrides['DEZ'] = {'Braptec': {pctComissao: 0.07}};
+buildTimeline();
+eq('% fixada no próprio mês vale', clientIn('DEZ','Braptec').pctComissao, 0.07);
+
+reset();
+valueOverrides['NOV'] = {'Braptec': {valorComissao: 999}};
+valueOverrides['DEZ'] = {'Braptec': {valorMensal: 2000}};
+buildTimeline();
+var bm = clientIn('DEZ','Braptec');
+eq('comissão fixada cai quando a mensalidade muda', bm.valorComissao, +(2000 * bm.pctComissao).toFixed(2));
+eq('...mas segue valendo no mês em que foi fixada', clientIn('NOV','Braptec').valorComissao, 999);
+
+reset();
+valueOverrides['NOV'] = {'Braptec': {valorComissao: 999}};
+buildTimeline();
+eq('comissão fixada segue se nada mudou', clientIn('DEZ','Braptec').valorComissao, 999);
+
+// ===========================================================================
 var sum = document.getElementById('sum');
 sum.textContent = pass + ' passaram · ' + fail + ' falharam';
 sum.style.background = fail ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)';

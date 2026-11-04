@@ -703,6 +703,22 @@ function getValueOverrideMonth(name, field, monthIdx) {
   return -1;
 }
 
+// Business rule: the commission always follows the tier %. A hand-edited % or
+// commission carried from an earlier month only holds while what it was based
+// on is unchanged: `stillValid(then)` compares the client as computed in the
+// month the pin was set against the current values. Months before
+// PIN_RULE_FROM_IDX keep the old behaviour (pins carry forward unconditionally)
+// so already-closed months do not change.
+var PIN_RULE_FROM_IDX = 11; // DEZ
+function pinStillHolds(name, field, monthIdx, stillValid) {
+  if (monthIdx < PIN_RULE_FROM_IDX) return true;
+  var setAt = getValueOverrideMonth(name, field, monthIdx);
+  if (setAt === monthIdx) return true;
+  var t = TIMELINE[MONTHS[setAt]];
+  var then = t && t.clients.find(function(c) { return c.name === name; });
+  return !!then && stillValid(then);
+}
+
 // ===========================================================================
 // SINGLE SOURCE OF TRUTH for the commission chain.
 //
@@ -757,12 +773,20 @@ function deriveClient(raw, monthIdx, ctx) {
   // Always follows the tier table for the current maturity; an explicit
   // override pins it. Pausing does not freeze the rate — the client keeps
   // climbing tiers, so on resuming they are paid at the rate they have earned.
+  // From PIN_RULE_FROM_IDX on, a pin lapses once the client changes tier.
   var ovPct = getValueOverride(name, 'pctComissao', monthIdx);
+  if (ovPct !== undefined && !pinStillHolds(name, 'pctComissao', monthIdx, function(then) {
+    return commRate(then.mesesAtivos) === commRate(client.mesesAtivos);
+  })) ovPct = undefined;
   client.pctComissao = (ovPct !== undefined) ? ovPct : commRate(client.mesesAtivos);
 
   // -- 5. COMISSÃO -----------------------------------------------------------
   // Defaults to mensalidade × %; an explicit override pins it.
+  // From PIN_RULE_FROM_IDX on, a pin lapses once the % or the mensalidade change.
   var ovComissao = getValueOverride(name, 'valorComissao', monthIdx);
+  if (ovComissao !== undefined && !pinStillHolds(name, 'valorComissao', monthIdx, function(then) {
+    return then.pctComissao === client.pctComissao && then.valorMensal === client.valorMensal;
+  })) ovComissao = undefined;
   if (ovComissao !== undefined) {
     client.valorComissao = ovComissao;
   } else {
