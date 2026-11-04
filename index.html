@@ -949,7 +949,11 @@ function computeDiff(monthIdx) {
     }
 
     var eventStatus = prevOvr[name];
-    if (inheritedInPrev !== eventStatus) {
+    // Only pause/resume is listed here: a cancellation already shows up as a
+    // departure in "Saídas" the month after, so listing it twice confused.
+    var pauseOrResume = (inheritedInPrev === 'normal' || inheritedInPrev === 'pausado')
+      && (eventStatus === 'normal' || eventStatus === 'pausado');
+    if (pauseOrResume && inheritedInPrev !== eventStatus) {
       statusChanged.push({name:name, from:inheritedInPrev, to:eventStatus});
     }
   });
