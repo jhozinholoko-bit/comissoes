@@ -300,6 +300,38 @@ buildTimeline();
 eq('comissão fixada segue se nada mudou', clientIn('DEZ','Braptec').valorComissao, 999);
 
 // ===========================================================================
+group('11. Virada de ano: 2027 continua de DEZ/2026');
+
+reset();
+buildTimeline();
+eq('JAN/2027 vem logo depois de DEZ/2026', MONTHS[12], 'JAN27');
+eq('...e é de 2027', monthYear(12), 2027);
+var dz = clientIn('DEZ','Braptec'), jn = clientIn('JAN27','Braptec');
+eq('maturidade continua contando na virada', jn && jn.mesesAtivos, dz.mesesAtivos + 1);
+eq('% em 2027 segue a faixa', jn && jn.pctComissao, commRate(jn.mesesAtivos));
+
+reset();
+overrides['DEZ'] = {'Braptec': 'cancelando'};
+buildTimeline();
+ok('cancelado em DEZ não entra em JAN/2027', !clientIn('JAN27','Braptec'));
+
+reset();
+valueOverrides['NOV'] = {'Braptec': {pctComissao: 0.09}};
+buildTimeline();
+var cross = MONTHS.slice(11).map(function(m) { var c = clientIn(m,'Braptec'); return c && commRate(c.mesesAtivos); });
+var firstChange = cross.findIndex(function(r) { return r !== cross[0]; });
+ok('pré-condição: Braptec muda de faixa em 2027', firstChange > 0);
+var mc = MONTHS[11 + firstChange];
+eq('% fixada em 2026 cai quando muda a faixa em 2027 (' + mc + ')', clientIn(mc,'Braptec').pctComissao, commRate(clientIn(mc,'Braptec').mesesAtivos));
+
+reset();
+DATA['FEV27'].clients.push({name:'Cliente 2027', valorMensal:1000, dataInicio:'', mesesAtivos:1,
+  pctComissao:0.03, valorComissao:30, status:'normal', isManual:true});
+buildTimeline();
+eq('cliente novo em 2027 entra com 3%', clientIn('FEV27','Cliente 2027').valorComissao, 30);
+eq('...e segue nos meses seguintes', clientIn('MAR27','Cliente 2027').mesesAtivos, 2);
+
+// ===========================================================================
 var sum = document.getElementById('sum');
 sum.textContent = pass + ' passaram · ' + fail + ' falharam';
 sum.style.background = fail ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)';
